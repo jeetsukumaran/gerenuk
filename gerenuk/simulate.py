@@ -43,6 +43,31 @@ from gerenuk import utility
 # 1000
 # 1000
 # //Sample sizes
+# 100
+# 100
+# //Growth rates: negative growth implies population expansion
+# 0
+# 0
+# //Number of migration matrices : 0 implies no migration between demes
+# 0
+# //historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event
+# 1  historical event
+# 10000 0 1 1 2 0 0
+# //Number of independent loci [chromosome]
+# 1 0
+# //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
+# 1
+# //per Block:data type, number of loci, per generation recombination and mutation rates and optional parameters
+# DNA 100 0 2.5e-6 OUTEXP
+# """
+
+# FSC2_CONFIG_TEMPLATE = """\
+# //Number of population samples (demes)
+# 2
+# //Population effective sizes (number of genes)
+# 1000
+# 1000
+# //Sample sizes
 # 10
 # 10
 # //Growth rates: negative growth implies population expansion
@@ -52,14 +77,15 @@ from gerenuk import utility
 # 0
 # //historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event
 # 1  historical event
-# 10 0 1 1 2 0 0
+# 10000 0 1 1 2 0 0
 # //Number of independent loci [chromosome]
 # 1 0
-# //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
+# //Per chromosome: Number of linkage blocks
 # 1
-# //per Block:data type, number of loci, per generation recombination and mutation rates and optional parameters
-# FREQ 1 0 2.27e-8 OUTEXP
+# //per Block: data type, num loci, rec. rate and mut rate + optional parameters
+# DNA 1 0.00000 0.02 0.33
 # """
+
 FSC2_CONFIG_TEMPLATE = """\
 //Number of population samples (demes)
 2
@@ -67,8 +93,8 @@ FSC2_CONFIG_TEMPLATE = """\
 1000
 1000
 //Sample sizes
-10
-10
+100
+100
 //Growth rates: negative growth implies population expansion
 0
 0
@@ -79,10 +105,10 @@ FSC2_CONFIG_TEMPLATE = """\
 10000 0 1 1 2 0 0
 //Number of independent loci [chromosome]
 1 0
-//Per chromosome: Number of linkage blocks
+//Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
 1
-//per Block: data type, num loci, rec. rate and mut rate + optional parameters
-DNA 1 0.00000 0.02 0.33
+//per Block:data type, number of loci, per generation recombination and mutation rates and optional parameters
+FREQ 100 0 1.87e-1 OUTEXP
 """
 
 class GerenukSimulator(object):
@@ -180,10 +206,7 @@ class GerenukSimulator(object):
         cmds.append(self.fsc2_path)
         cmds.extend(["-n", "1"]) # number of simulations to perform
         cmds.extend(["-r", str(self.rng.randint(1, 1E6))]) # seed for random number generator (positive integer <= 1E6)
-        cmds.append("-T")
-        # cmds.append("-H")               # generates header in site frequency spectrum files
-        # cmds.extend(["--allsites"]) # output the whole DNA sequence, incl. monomorphic sites
-        # cmds.extend("--inf") # generates DNA mutations according to an infinite site (IS) mutation model
+        cmds.extend(["-d", "-s0", "-x", "-I", "-D", "-u"])
         cmds.extend(["-i", self.fsc2_parameter_filepath])
         self.run_logger.info("Running FastSimCoal2")
         self.run_logger.info(cmds)
