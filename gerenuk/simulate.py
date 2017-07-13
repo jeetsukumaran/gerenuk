@@ -60,18 +60,42 @@ FSC2_CONFIG_TEMPLATE = """\
 DNA 1 0.00000 0.00000002 0.33
 """
 
-class GerenukSimulate(object):
+class GerenukSimulator(object):
 
-    def __init__(self, **kwargs):
-        self.fsc2_path = kwargs.pop("fsc2_path", "fsc25")
-        if "rng" in kwargs:
-            self.rng = kwargs.pop("rng")
+    def __init__(self,
+            config_d,
+            is_verbose_setup):
+        # configure
+        self.elapsed_time = 0.0 # need to be here for logging
+        config_d = dict(config_d) # make copy so we can pop items
+        self.configure_simulator(config_d, verbose=is_verbose_setup)
+
+    def configure_simulator(self, config_d, verbose=True):
+        self.name = config_d.pop("name", None)
+        if self.name is None:
+            self.name = str(id(self))
+        self.output_prefix = config_d.pop("output_prefix", "gerenuk-{}".format(self.name))
+        self.run_logger = config_d.pop("run_logger", None)
+        if self.run_logger is None:
+            self.run_logger = utility.RunLogger(
+                    name="archipelago",
+                    stderr_logging_level=config_d.pop("standard_error_logging_level", "info"),
+                    log_to_file=config_d.pop("log_to_file", True),
+                    log_path=self.output_prefix + ".log",
+                    file_logging_level=config_d.pop("file_logging_level", "info"),
+                    )
+        self.run_logger.system = self
+        if verbose:
+            self.run_logger.info("Configuring simulation '{}'".format(self.name))
+        self.fsc2_path = config_d.pop("fsc2_path", "fsc25")
+        if "rng" in config_d:
+            self.rng = config_d.pop("rng")
         else:
             self.rng = random.Random()
-        if kwargs:
-            raise Exception("Unrecognized keywords arguments: {}".format(kwargs))
+        if config_d:
+            raise Exception("Unrecognized configuration entries: {}".format(config_d))
 
-    def generate_configuration_file(self, filepath):
+    def generate_fsc2_configuration_file(self, filepath):
         with open(filepath, "w") as dest:
             config = FSC2_CONFIG_TEMPLATE
             dest.write(config)
@@ -84,5 +108,8 @@ class GerenukSimulate(object):
         # cmds.extend("--inf") # generates DNA mutations according to an infinite site (IS) mutation model
 
 if __name__ == "__main__":
-    gs = GerenukSimulate()
+    config_d = {}
+    gs = GerenukSimulator(
+            config_d=config_d,
+            is_verbose_setup=True)
 
