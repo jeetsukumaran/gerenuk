@@ -8,3 +8,6 @@ build/*
 dist/*
 setup.cfg
 setuptools-*.egg
+
+# Main
+var/**
