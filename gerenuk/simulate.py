@@ -69,6 +69,9 @@ class GerenukSimulator(object):
         self.elapsed_time = 0.0 # need to be here for logging
         config_d = dict(config_d) # make copy so we can pop items
         self.configure_simulator(config_d, verbose=is_verbose_setup)
+        self.num_executions = 0
+        self._parameter_filepath = None
+        self._current_execution_id = None
 
     def configure_simulator(self, config_d, verbose=True):
         self.name = config_d.pop("name", None)
@@ -88,24 +91,72 @@ class GerenukSimulator(object):
         if verbose:
             self.run_logger.info("Configuring simulation '{}'".format(self.name))
         self.fsc2_path = config_d.pop("fsc2_path", "fsc25")
-        if "rng" in config_d:
-            self.rng = config_d.pop("rng")
+        if verbose:
+            self.run_logger.info("FastSimCoal2 path: '{}'".format(self.fsc2_path))
+        self.rng = config_d.pop("rng", None)
+        if self.rng is None:
+            self.random_seed = config_d.pop("random_seed", None)
+            if self.random_seed is None:
+                self.random_seed = random.randint(0, sys.maxsize)
+            if verbose:
+                self.run_logger.info("Initializing with random seed {}".format(self.random_seed))
+            self.rng = random.Random(self.random_seed)
         else:
-            self.rng = random.Random()
+            if "random_seed" in config_d:
+                raise TypeError("Cannot specify both 'rng' and 'random_seed'")
+            if verbose:
+                self.run_logger.info("Using existing random number generator")
+        self.debug_mode = config_d.pop("debug_mode", False)
+        if verbose and self.debug_mode:
+            self.run_logger.info("Running in DEBUG mode")
         if config_d:
             raise Exception("Unrecognized configuration entries: {}".format(config_d))
 
-    def generate_fsc2_configuration_file(self, filepath):
-        with open(filepath, "w") as dest:
+    def _get_current_execution_id(self):
+        if self._current_execution_id is None:
+            self._current_execution_id = "".join(["gerenuk-",
+                self.name, "-{:06d}".format(self.num_executions),
+                ])
+        return self._current_execution_id
+    current_execution_id = property(_get_current_execution_id)
+
+    def _get_parameter_filepath(self):
+        if self._parameter_filepath is None:
+            if self.debug_mode:
+                self._parameter_filepath = os.path.join([self.current_execution_id, "fsc2", "par"])
+            else:
+                self._parameter_filepath = os.path.join([self.name, "fsc2", "par"])
+        return self._parameter_filepath
+    parameter_filepath = property(_get_parameter_filepath)
+
+    def _generate_fsc2_parameter_file(self):
+        assert self._parameter_filepath
+        print(self._parameter_filepath)
+        with open(self._parameter_filepath, "w") as dest:
             config = FSC2_CONFIG_TEMPLATE
             dest.write(config)
 
+    def _new_execution_reset(self):
+        self._current_execution_id = None
+        self._parameter_filepath = None
+
+    def _setup_for_execution(self):
+        self._new_execution_reset()
+        self._compose_filepaths()
+        self._generate_fsc2_parameter_file()
+
+    def _post_execution_cleanup(self):
+        pass
+
     def execute(self):
+        self._setup_for_execution()
         cmds = []
         cmds.append(self.fsc2_path)
         cmds.extend("-n", "1") # number of simulations to perform
         cmds.extend("--allsites") # output the whole DNA sequence, incl. monomorphic sites
         # cmds.extend("--inf") # generates DNA mutations according to an infinite site (IS) mutation model
+        self.num_executions += 1
+        self._post_execution_cleanup()
 
 if __name__ == "__main__":
     config_d = {}
