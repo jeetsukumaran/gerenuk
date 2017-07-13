@@ -19,14 +19,13 @@
 ## THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
 ## IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
 ## THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-## PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL JEET SUKUMARAN OR MARK T. HOLDER
-## BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-## CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-## SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-## INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-## CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-## POSSIBILITY OF SUCH DAMAGE.
+## PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL JEET SUKUMARAN BE LIABLE FOR ANY
+## DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+## (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+## LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+## AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+## (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+## SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ##
 ##############################################################################
 
@@ -34,59 +33,7 @@ import subprocess
 import random
 import sys
 
-##############################################################################
-## Process Control/Handling
-
-import locale
-import codecs
-import sys
-
-try:
-    ENCODING = locale.getdefaultlocale()[1]
-except ValueError:
-    ENCODING = None # let default value be assigned below
-
-if ENCODING == None:
-    ENCODING = 'UTF-8'
-
-def _bytes_to_text(s):
-    """
-    Converts a byte string (as read from, e.g., standard input)
-    to a text string.
-
-    In Python 3, this is from type ``bytes`` to ``str``.
-    In Python 2, this is, confusingly, from type ``str`` to ``unicode``.
-
-    """
-    s = codecs.decode(s, ENCODING)
-    if sys.hexversion < 0x03000000:
-        s = codecs.encode(s, "utf-8")
-    return s
-
-def _communicate_process(p, commands=None, timeout=None):
-    if isinstance(commands, list) or isinstance(commands, tuple):
-        commands = "\n".join(str(c) for c in commands)
-    if commands is not None:
-        commands = str.encode(commands)
-    if timeout is None:
-        stdout, stderr = p.communicate(commands)
-    else:
-        try:
-            stdout, stderr = p.communicate(commands, timeout=timeout)
-        except TypeError as e:
-            if "unexpected keyword argument 'timeout'" in str(e):
-                stdout, stderr = p.communicate(commands)
-            else:
-                raise
-    if stdout is not None:
-        stdout = _bytes_to_text(stdout)
-    if stderr is not None:
-        stderr = _bytes_to_text(stderr)
-    return stdout, stderr
-
-## Process Control/Handling
-##############################################################################
-
+from gerenuk import utility
 
 FSC2_CONFIG_TEMPLATE = """\
 //Number of population samples (demes)
@@ -123,6 +70,11 @@ class GerenukSimulate(object):
             self.rng = random.Random()
         if kwargs:
             raise Exception("Unrecognized keywords arguments: {}".format(kwargs))
+
+    def generate_configuration_file(self, filepath):
+        with open(filepath, "w") as dest:
+            config = FSC2_CONFIG_TEMPLATE
+            dest.write(config)
 
     def execute(self):
         cmds = []
