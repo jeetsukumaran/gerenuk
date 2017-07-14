@@ -267,10 +267,10 @@ class SimulationWorker(multiprocessing.Process):
 
     def simulate(self):
         num_div_times = self.model.rng.randint(1, self.model.num_species_pairs)
-        div_times = [self.model.rng(0, 100000) for i in range(num_div_times)]
+        div_times = [self.model.rng.randint(0, 100000) for i in range(num_div_times)]
         per_pair_div_times = []
-        for sp_pair in self.mode.species_pairs:
-            per_pair_div_times = self.rng.choice(div_times)
+        for sp_pair in self.model.species_pairs:
+            per_pair_div_times = self.model.rng.choice(div_times)
         params = {
                 "param.numDivTimes": num_div_times,
             }
