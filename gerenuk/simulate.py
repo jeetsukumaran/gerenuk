@@ -40,6 +40,7 @@ except ImportError:
     # Python 2.7
     import Queue as queue
 import multiprocessing
+import traceback
 
 from gerenuk import utility
 
@@ -247,7 +248,9 @@ class SimulationWorker(multiprocessing.Process):
             try:
                 result = self.simulate()
             except (KeyboardInterrupt, Exception) as e:
+                # traceback.print_exc()
                 e.worker_name = self.name
+                e.traceback_exc = traceback.format_exc()
                 self.results_queue.put(e)
                 break
             if self.kill_received:
@@ -263,7 +266,15 @@ class SimulationWorker(multiprocessing.Process):
             self.send_worker_warning("Terminating in response to kill request")
 
     def simulate(self):
-        pass
+        num_div_times = self.model.rng(1, self.model.num_species_pairs)
+        div_times = [self.model.rng(0, 100000) for i in range(num_div_times)]
+        per_pair_div_times = []
+        for sp_pair in self.mode.species_pairs:
+            per_pair_div_times = self.rng.choice(div_times)
+        params = {
+                "param.numDivTimes": num_div_times,
+            }
+        return params
 
     def execute_fsc2(self):
         self._setup_for_execution()
@@ -392,7 +403,8 @@ class GerenukSimulator(object):
             while result_count < nreps:
                 result = results_queue.get()
                 if isinstance(result, Exception) or isinstance(result, KeyboardInterrupt):
-                    # self.info_message("Exception raised in worker process '{}'".format(result.worker_name))
+                    self.run_logger.error("Exception raised in worker process '{}'".format(result.worker_name))
+                    self.run_logger.error("Traceback>>>\n{}<<<Traceback\n".format(result.traceback_exc))
                     raise result
                 results_collator.append(result)
                 # self.run_logger.info("Recovered results from worker process '{}'".format(result.worker_name))
@@ -412,4 +424,8 @@ if __name__ == "__main__":
             config_d=config_d,
             num_processes=3,
             is_verbose_setup=True)
-    gs.execute(10000)
+    try:
+        results = gs.execute(1000)
+    except Exception as e:
+        sys.exit(1)
+    print(results)
