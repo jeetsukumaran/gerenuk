@@ -134,15 +134,17 @@ class SpeciesPair(object):
 
 class GerenukSimulationModel(object):
 
-    def __init__(self):
+    def __init__(self,
+            rng):
         self.num_species_pairs = 4
         self.species_pairs = [SpeciesPair() for i in range(self.num_species_pairs)]
+        self.rng = rng
 
 class SimulationWorker(multiprocessing.Process):
 
     def __init__(self,
             name,
-            rng,
+            model,
             work_queue,
             results_queue,
             fsc2_path,
@@ -152,7 +154,7 @@ class SimulationWorker(multiprocessing.Process):
             debug_mode,
             ):
         multiprocessing.Process.__init__(self, name=name)
-        self.rng = rng
+        self.model = model
         self.work_queue = work_queue
         self.results_queue = results_queue
         self.fsc2_path = fsc2_path
@@ -243,7 +245,7 @@ class SimulationWorker(multiprocessing.Process):
             #     task_name=rep_idx))
             # rng = random.Random(random_seed)
             try:
-                result = self.simulate(self.rng)
+                result = self.simulate()
             except (KeyboardInterrupt, Exception) as e:
                 e.worker_name = self.name
                 self.results_queue.put(e)
@@ -260,7 +262,7 @@ class SimulationWorker(multiprocessing.Process):
         if self.kill_received:
             self.send_worker_warning("Terminating in response to kill request")
 
-    def simulate(self, rng):
+    def simulate(self):
         pass
 
     def execute_fsc2(self):
@@ -351,7 +353,9 @@ class GerenukSimulator(object):
         self.is_debug_mode = config_d.pop("debug_mode", False)
         if self.is_verbose_setup and self.is_debug_mode:
             self.run_logger.info("Running in DEBUG mode")
-        self.model = GerenukSimulationModel()
+        self.model = GerenukSimulationModel(
+                rng=self.rng,
+                )
         if config_d:
             raise Exception("Unrecognized configuration entries: {}".format(config_d))
 
@@ -369,7 +373,7 @@ class GerenukSimulator(object):
         for pidx in range(self.num_processes):
             worker = self.worker_class(
                     name=str(pidx+1),
-                    rng=self.rng,
+                    model=self.model,
                     work_queue=work_queue,
                     results_queue=results_queue,
                     fsc2_path=self.fsc2_path,
