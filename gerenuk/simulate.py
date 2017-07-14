@@ -266,15 +266,13 @@ class SimulationWorker(multiprocessing.Process):
             self.send_worker_warning("Terminating in response to kill request")
 
     def simulate(self):
+        result = {}
         num_div_times = self.model.rng.randint(1, self.model.num_species_pairs)
         div_times = [self.model.rng.randint(0, 100000) for i in range(num_div_times)]
-        per_pair_div_times = []
-        for sp_pair in self.model.species_pairs:
-            per_pair_div_times = self.model.rng.choice(div_times)
-        params = {
-                "param.numDivTimes": num_div_times,
-            }
-        return params
+        result["param.numDivTimes"] = num_div_times
+        for sp_idx, sp_pair in enumerate(self.model.species_pairs):
+            result["param.divTime.spp{}".format(sp_idx+1)] = self.model.rng.choice(div_times)
+        return result
 
     def execute_fsc2(self):
         self._setup_for_execution()
