@@ -266,7 +266,7 @@ class SimulationWorker(multiprocessing.Process):
             self.send_worker_warning("Terminating in response to kill request")
 
     def simulate(self):
-        num_div_times = self.model.rng(1, self.model.num_species_pairs)
+        num_div_times = self.model.rng.randint(1, self.model.num_species_pairs)
         div_times = [self.model.rng(0, 100000) for i in range(num_div_times)]
         per_pair_div_times = []
         for sp_pair in self.mode.species_pairs:
