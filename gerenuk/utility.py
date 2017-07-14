@@ -89,14 +89,21 @@ _LOGGING_FORMAT_ENVAR = "GERENUK_LOGGING_FORMAT"
 
 class RunLogger(object):
 
+    NOTSET_MESSAGING_LEVEL = logging.NOTSET
+    DEBUG_MESSAGING_LEVEL = logging.DEBUG
+    INFO_MESSAGING_LEVEL = logging.INFO
+    WARNING_MESSAGING_LEVEL = logging.WARNING
+    ERROR_MESSAGING_LEVEL = logging.ERROR
+    CRITICAL_MESSAGING_LEVEL = logging.CRITICAL
+
     def __init__(self, **kwargs):
         self.name = kwargs.get("name", "RunLog")
         self._log = logging.getLogger(self.name)
-        self._log.setLevel(logging.DEBUG)
+        self._log.setLevel(RunLogger.DEBUG_MESSAGING_LEVEL)
         self.handlers = []
         if kwargs.get("log_to_stderr", True):
             handler1 = logging.StreamHandler()
-            stderr_logging_level = self.get_logging_level(kwargs.get("stderr_logging_level", logging.INFO))
+            stderr_logging_level = self.get_logging_level(kwargs.get("stderr_logging_level", RunLogger.INFO_MESSAGING_LEVEL))
             handler1.setLevel(stderr_logging_level)
             handler1.setFormatter(self.get_default_formatter())
             self._log.addHandler(handler1)
@@ -107,7 +114,7 @@ class RunLogger(object):
             else:
                 log_stream = open(kwargs.get("log_path", self.name + ".log"), "w")
             handler2 = logging.StreamHandler(log_stream)
-            file_logging_level = self.get_logging_level(kwargs.get("file_logging_level", logging.DEBUG))
+            file_logging_level = self.get_logging_level(kwargs.get("file_logging_level", RunLogger.DEBUG_MESSAGING_LEVEL))
             handler2.setLevel(file_logging_level)
             handler2.setFormatter(self.get_default_formatter())
             self._log.addHandler(handler2)
@@ -129,8 +136,14 @@ class RunLogger(object):
     system = property(_get_system, _set_system)
 
     def get_logging_level(self, level=None):
-        if level in [logging.NOTSET, logging.DEBUG, logging.INFO, logging.WARNING,
-            logging.ERROR, logging.CRITICAL]:
+        if level in [
+                RunLogger.NOTSET_MESSAGING_LEVEL,
+                RunLogger.DEBUG_MESSAGING_LEVEL,
+                RunLogger.INFO_MESSAGING_LEVEL,
+                RunLogger.WARNING_MESSAGING_LEVEL,
+                RunLogger.ERROR_MESSAGING_LEVEL,
+                RunLogger.CRITICAL_MESSAGING_LEVEL,
+                ]:
             return level
         elif level is not None:
             level_name = str(level).upper()
@@ -139,19 +152,19 @@ class RunLogger(object):
         else:
             level_name = "NOTSET"
         if level_name == "NOTSET":
-            level = logging.NOTSET
+            level = RunLogger.NOTSET_MESSAGING_LEVEL
         elif level_name == "DEBUG":
-            level = logging.DEBUG
+            level = RunLogger.DEBUG_MESSAGING_LEVEL
         elif level_name == "INFO":
-            level = logging.INFO
+            level = RunLogger.INFO_MESSAGING_LEVEL
         elif level_name == "WARNING":
-            level = logging.WARNING
+            level = RunLogger.WARNING_MESSAGING_LEVEL
         elif level_name == "ERROR":
-            level = logging.ERROR
+            level = RunLogger.ERROR_MESSAGING_LEVEL
         elif level_name == "CRITICAL":
-            level = logging.CRITICAL
+            level = RunLogger.CRITICAL_MESSAGING_LEVEL
         else:
-            level = logging.NOTSET
+            level = RunLogger.NOTSET_MESSAGING_LEVEL
         return level
 
     def get_default_formatter(self):
@@ -205,6 +218,20 @@ class RunLogger(object):
 
     def critical(self, msg):
         self._log.critical(msg, extra=self.supplemental_info_d())
+
+    def log(self, msg, level):
+        if level == RunLogger.DEBUG_MESSAGING_LEVEL:
+            self.debug(msg)
+        elif level == RunLogger.INFO_MESSAGING_LEVEL:
+            self.info(msg)
+        elif level == RunLogger.WARNING_MESSAGING_LEVEL:
+            self.warning(msg)
+        elif level == RunLogger.ERROR_MESSAGING_LEVEL:
+            self.error(msg)
+        elif level == RunLogger.CRITICAL_MESSAGING_LEVEL:
+            self.critical(msg)
+        else:
+            raise Exception("Unrecognized messaging level: {}".format(level))
 
     def flush(self):
         for handler in self.handlers:
