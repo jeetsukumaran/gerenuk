@@ -32,6 +32,7 @@
 import locale
 import codecs
 import sys
+import os
 import logging
 import tempfile
 

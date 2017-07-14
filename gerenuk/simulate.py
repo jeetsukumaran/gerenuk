@@ -297,7 +297,6 @@ class GerenukSimulator(object):
             self.num_processes = 1
         else:
             self.num_processes = num_processes
-        self.logging_frequency = logging_frequency
         if self.is_verbose_setup:
             self.run_logger.info("Will run up to {} processes in parallel".format(self.num_processes))
             self.run_logger.info("{} pairs of species in analysis:".format(self.model.num_species_pairs))
@@ -320,6 +319,7 @@ class GerenukSimulator(object):
                     file_logging_level=config_d.pop("file_logging_level", "info"),
                     )
         self.run_logger.system = self
+        self.logging_frequency = config_d.pop("logging_frequency", 1000)
         if self.is_verbose_setup:
             self.run_logger.info("Configuring simulation '{}'".format(self.name))
         self.fsc2_path = config_d.pop("fsc2_path", "fsc25")
