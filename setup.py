@@ -11,6 +11,7 @@ setup(
     packages=["gerenuk", "test"],
     # scripts=["bin/gerenuk.py",],
     url="http://pypi.python.org/pypi/gerenuk/",
+    test_suite = "test",
     license="LICENSE.txt",
     description="A Project",
     long_description=open("README.txt").read(),
