@@ -142,20 +142,20 @@ class SimulationWorker(multiprocessing.Process):
 
     def __init__(self,
             name,
+            rng,
             work_queue,
             results_queue,
             fsc2_path,
-            random_seed,
             run_logger,
             logging_frequency,
             messenger_lock,
             debug_mode,
             ):
         multiprocessing.Process.__init__(self, name=name)
+        self.rng = rng
         self.work_queue = work_queue
         self.results_queue = results_queue
         self.fsc2_path = fsc2_path
-        self.rng = random.Random(random_seed)
         self.run_logger = run_logger
         self.logging_frequency = logging_frequency
         self.messenger_lock = messenger_lock
@@ -241,8 +241,9 @@ class SimulationWorker(multiprocessing.Process):
             # self.send_worker_critical("Received task: '{task_name}'".format(
             #     task_count=self.num_tasks_received,
             #     task_name=rep_idx))
+            # rng = random.Random(random_seed)
             try:
-                result = self.simulate()
+                result = self.simulate(self.rng)
             except (KeyboardInterrupt, Exception) as e:
                 e.worker_name = self.name
                 self.results_queue.put(e)
@@ -259,7 +260,7 @@ class SimulationWorker(multiprocessing.Process):
         if self.kill_received:
             self.send_worker_warning("Terminating in response to kill request")
 
-    def simulate(self):
+    def simulate(self, rng):
         pass
 
     def execute_fsc2(self):
@@ -358,8 +359,9 @@ class GerenukSimulator(object):
         # load up queue
         self.run_logger.info("Creating work queue")
         work_queue = multiprocessing.Queue()
-        for repidx in range(nreps):
-            work_queue.put(repidx+1)
+        for rep_idx in range(nreps):
+            # work_queue.put( (rep_idx, self.rng.randint(1, 1E6)) ) # load worker queue with random seed
+            work_queue.put( rep_idx ) # load worker queue with random seed
         self.run_logger.info("Launching {} worker processes".format(self.num_processes))
         results_queue = multiprocessing.Queue()
         messenger_lock = multiprocessing.Lock()
@@ -367,10 +369,10 @@ class GerenukSimulator(object):
         for pidx in range(self.num_processes):
             worker = self.worker_class(
                     name=str(pidx+1),
+                    rng=self.rng,
                     work_queue=work_queue,
                     results_queue=results_queue,
                     fsc2_path=self.fsc2_path,
-                    random_seed=self.rng.randint(1, 1E6),
                     run_logger=self.run_logger,
                     logging_frequency=self.logging_frequency,
                     messenger_lock=messenger_lock,

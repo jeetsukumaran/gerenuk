@@ -6,11 +6,11 @@ from gerenuk import simulate
 
 class TestWorker(simulate.SimulationWorker):
 
-    def simulate(self):
-        time.sleep(0.0001)
+    def simulate(self, rng):
         return {
                 "name": self.name,
                 "task_count": self.num_tasks_received,
+                "rand_int": rng.randint(1, 1E6),
                 }
 
 class MpArchitectureTests(unittest.TestCase):
