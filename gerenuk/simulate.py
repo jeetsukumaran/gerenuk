@@ -215,6 +215,12 @@ class SimulationWorker(multiprocessing.Process):
         finally:
             self.messenger_lock.release()
 
+    def send_worker_critical(self, msg):
+        self.send_worker_message(msg, utility.RunLogger.CRITICAL_MESSAGING_LEVEL)
+
+    def send_worker_debug(self, msg):
+        self.send_worker_message(msg, utility.RunLogger.DEBUG_MESSAGING_LEVEL)
+
     def send_worker_info(self, msg):
         self.send_worker_message(msg, utility.RunLogger.INFO_MESSAGING_LEVEL)
 
@@ -225,24 +231,25 @@ class SimulationWorker(multiprocessing.Process):
         self.send_worker_message(msg, utility.RunLogger.ERROR_MESSAGING_LEVEL)
 
     def run(self):
-        results = []
+        result = None
         while not self.kill_received:
             try:
                 rep_idx = self.work_queue.get_nowait()
             except queue.Empty:
                 break
             self.num_tasks_received += 1
-            # self.send_info("Received task: '{task_name}'".format(
+            # self.send_worker_critical("Received task: '{task_name}'".format(
             #     task_count=self.num_tasks_received,
             #     task_name=rep_idx))
             try:
-                pass
+                result = self.simulate()
             except (KeyboardInterrupt, Exception) as e:
                 e.worker_name = self.name
                 self.results_queue.put(e)
                 break
             if self.kill_received:
                 break
+            self.results_queue.put(result)
             self.num_tasks_completed += 1
             # self.send_info("Completed task {task_count}: '{task_name}'".format(
             if rep_idx % self.logging_frequency == 0:
@@ -251,10 +258,11 @@ class SimulationWorker(multiprocessing.Process):
                     task_name=rep_idx))
         if self.kill_received:
             self.send_worker_warning("Terminating in response to kill request")
-        else:
-            self.results_queue.put(results)
 
-    def execute(self):
+    def simulate(self):
+        pass
+
+    def execute_fsc2(self):
         self._setup_for_execution()
         cmds = []
         cmds.append(self.fsc2_path)
@@ -302,6 +310,7 @@ class GerenukSimulator(object):
             self.run_logger.info("{} pairs of species in analysis:".format(self.model.num_species_pairs))
             for spidx, sp in enumerate(self.model.species_pairs):
                 self.run_logger.info("    {:>3d}. '{}': {} / {}".format(spidx+1, sp.label, sp.num_sampled_genes[0], sp.num_sampled_genes[1]))
+        self.worker_class = SimulationWorker
 
     def configure_simulator(self, config_d, verbose=True):
         self.name = config_d.pop("name", None)
@@ -356,7 +365,7 @@ class GerenukSimulator(object):
         messenger_lock = multiprocessing.Lock()
         workers = []
         for pidx in range(self.num_processes):
-            worker = SimulationWorker(
+            worker = self.worker_class(
                     name=str(pidx+1),
                     work_queue=work_queue,
                     results_queue=results_queue,
@@ -374,7 +383,7 @@ class GerenukSimulator(object):
         result_count = 0
         results_collator = []
         try:
-            while result_count < self.num_processes:
+            while result_count < nreps:
                 result = results_queue.get()
                 if isinstance(result, Exception) or isinstance(result, KeyboardInterrupt):
                     # self.info_message("Exception raised in worker process '{}'".format(result.worker_name))
@@ -388,6 +397,7 @@ class GerenukSimulator(object):
                 worker.terminate()
             raise
         self.run_logger.info("All {} worker processes terminated".format(self.num_processes))
+        return results_collator
 
 
 if __name__ == "__main__":
