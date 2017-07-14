@@ -173,8 +173,8 @@ class RunLogger(object):
         return f
 
     def get_simulation_generation_formatter(self):
-        # f = logging.Formatter("[%(asctime)s] t = %(elapsed_time)10.6f: %(message)s")
-        f = logging.Formatter("[%(asctime)s] %(simulation_time)s%(message)s")
+        # f = logging.Formatter("[%(asctime)s] %(simulation_time)s%(message)s")
+        f = logging.Formatter("[%(asctime)s] %(message)s")
         f.datefmt='%Y-%m-%d %H:%M:%S'
         return f
 
@@ -194,30 +194,20 @@ class RunLogger(object):
         if logging_formatter is not None:
             logging_formatter.datefmt='%H:%M:%S'
 
-    def supplemental_info_d(self):
-        if self._system is None or self._system.elapsed_time == 0 :
-            return {
-                    "simulation_time" : "Setup: ",
-                    }
-        else:
-            return {
-                    "simulation_time" : "[t = {:13.6f}] ".format(self._system.elapsed_time),
-                    }
-
     def debug(self, msg):
-        self._log.debug("[DEBUG] {}".format(msg), extra=self.supplemental_info_d())
+        self._log.debug("[DEBUG] {}".format(msg))
 
     def info(self, msg):
-        self._log.info(msg, extra=self.supplemental_info_d())
+        self._log.info(msg)
 
     def warning(self, msg):
-        self._log.warning(msg, extra=self.supplemental_info_d())
+        self._log.warning(msg)
 
     def error(self, msg):
-        self._log.error(msg, extra=self.supplemental_info_d())
+        self._log.error(msg)
 
     def critical(self, msg):
-        self._log.critical(msg, extra=self.supplemental_info_d())
+        self._log.critical(msg)
 
     def log(self, msg, level):
         if level == RunLogger.DEBUG_MESSAGING_LEVEL:

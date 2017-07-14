@@ -147,6 +147,7 @@ class SimulationWorker(multiprocessing.Process):
             fsc2_path,
             random_seed,
             run_logger,
+            logging_frequency,
             messenger_lock,
             debug_mode,
             ):
@@ -156,6 +157,7 @@ class SimulationWorker(multiprocessing.Process):
         self.fsc2_path = fsc2_path
         self.rng = random.Random(random_seed)
         self.run_logger = run_logger
+        self.logging_frequency = logging_frequency
         self.messenger_lock = messenger_lock
         self.kill_received = False
         self.num_tasks_received = 0
@@ -201,7 +203,7 @@ class SimulationWorker(multiprocessing.Process):
     def _post_execution_cleanup(self):
         pass
 
-    def send_message(self, msg, level):
+    def send_worker_message(self, msg, level):
         if self.run_logger is None:
             return
         # if self.run_logger.messaging_level > level or self.messenger.silent:
@@ -213,26 +215,26 @@ class SimulationWorker(multiprocessing.Process):
         finally:
             self.messenger_lock.release()
 
-    def send_info(self, msg):
-        self.send_message(msg, utility.RunLogger.INFO_MESSAGING_LEVEL)
+    def send_worker_info(self, msg):
+        self.send_worker_message(msg, utility.RunLogger.INFO_MESSAGING_LEVEL)
 
-    def send_warning(self, msg):
-        self.send_message(msg, utility.RunLogger.WARNING_MESSAGING_LEVEL)
+    def send_worker_warning(self, msg):
+        self.send_worker_message(msg, utility.RunLogger.WARNING_MESSAGING_LEVEL)
 
-    def send_error(self, msg):
-        self.send_message(msg, utility.RunLogger.ERROR_MESSAGING_LEVEL)
+    def send_worker_error(self, msg):
+        self.send_worker_message(msg, utility.RunLogger.ERROR_MESSAGING_LEVEL)
 
     def run(self):
+        results = []
         while not self.kill_received:
             try:
                 rep_idx = self.work_queue.get_nowait()
             except queue.Empty:
                 break
             self.num_tasks_received += 1
-            # self.send_info("Received task {task_count}: '{task_name}'".format(
-            self.send_info("Received task: '{task_name}'".format(
-                task_count=self.num_tasks_received,
-                task_name=rep_idx))
+            # self.send_info("Received task: '{task_name}'".format(
+            #     task_count=self.num_tasks_received,
+            #     task_name=rep_idx))
             try:
                 pass
             except (KeyboardInterrupt, Exception) as e:
@@ -243,13 +245,14 @@ class SimulationWorker(multiprocessing.Process):
                 break
             self.num_tasks_completed += 1
             # self.send_info("Completed task {task_count}: '{task_name}'".format(
-            self.send_info("Completed task: '{task_name}'".format(
-                task_count=self.num_tasks_received,
-                task_name=rep_idx))
+            if rep_idx % self.logging_frequency == 0:
+                self.run_logger.info("Completed replicate {task_name}".format(
+                    task_count=self.num_tasks_received,
+                    task_name=rep_idx))
         if self.kill_received:
-            self.send_warning("Terminating in response to kill request")
+            self.send_worker_warning("Terminating in response to kill request")
         else:
-            self.results_queue.put(rep_idx)
+            self.results_queue.put(results)
 
     def execute(self):
         self._setup_for_execution()
@@ -275,6 +278,7 @@ class GerenukSimulator(object):
     def __init__(self,
             config_d,
             num_processes=None,
+            logging_frequency=1000,
             is_verbose_setup=True):
         # configure
         self.elapsed_time = 0.0 # need to be here for logging
@@ -293,11 +297,12 @@ class GerenukSimulator(object):
             self.num_processes = 1
         else:
             self.num_processes = num_processes
+        self.logging_frequency = logging_frequency
         if self.is_verbose_setup:
             self.run_logger.info("Will run up to {} processes in parallel".format(self.num_processes))
             self.run_logger.info("{} pairs of species in analysis:".format(self.model.num_species_pairs))
             for spidx, sp in enumerate(self.model.species_pairs):
-                self.run_logger.info("    {:>3d}. '{}': {} / {}".format(spidx, sp.label, sp.num_sampled_genes[0], sp.num_sampled_genes[1]))
+                self.run_logger.info("    {:>3d}. '{}': {} / {}".format(spidx+1, sp.label, sp.num_sampled_genes[0], sp.num_sampled_genes[1]))
 
     def configure_simulator(self, config_d, verbose=True):
         self.name = config_d.pop("name", None)
@@ -358,6 +363,7 @@ class GerenukSimulator(object):
                     fsc2_path=self.fsc2_path,
                     random_seed=self.rng.randint(1, 1E6),
                     run_logger=self.run_logger,
+                    logging_frequency=self.logging_frequency,
                     messenger_lock=messenger_lock,
                     debug_mode=self.is_debug_mode,
                     )
@@ -390,4 +396,4 @@ if __name__ == "__main__":
             config_d=config_d,
             num_processes=3,
             is_verbose_setup=True)
-    gs.execute(10)
+    gs.execute(10000)
