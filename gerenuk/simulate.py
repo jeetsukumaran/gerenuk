@@ -119,6 +119,124 @@ FSC2_CONFIG_TEMPLATE = """\
 DNA 10 0.00000 0.02 0.33
 """
 
+def weighted_choice(seq, weights, rng):
+    """
+    Selects an element out of seq, with probabilities of each element
+    given by the list `weights` (which must be at least as long as the
+    length of `seq` - 1).
+    """
+    if weights is None:
+        weights = [1.0/len(seq) for count in range(len(seq))]
+    else:
+        weights = list(weights)
+    if len(weights) < len(seq) - 1:
+        raise Exception("Insufficient number of weights specified")
+    sow = sum(weights)
+    if len(weights) == len(seq) - 1:
+        weights.append(1 - sow)
+    return seq[weighted_index_choice(weights, sow, rng)]
+
+def weighted_index_choice(weights, sum_of_weights, rng):
+    """
+    (From: http://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/)
+    The following is a simple function to implement weighted random choice in
+    Python. Given a list of weights, it returns an index randomly, according
+    to these weights [1].
+    For example, given [2, 3, 5] it returns 0 (the index of the first element)
+    with probability 0.2, 1 with probability 0.3 and 2 with probability 0.5.
+    The weights need not sum up to anything in particular, and can actually be
+    arbitrary Python floating point numbers.
+    If we manage to sort the weights in descending order before passing them
+    to weighted_choice_sub, it will run even faster, since the random call
+    returns a uniformly distributed value and larger chunks of the total
+    weight will be skipped in the beginning.
+    """
+    rnd = rng.uniform(0, 1) * sum_of_weights
+    for i, w in enumerate(weights):
+        rnd -= w
+        if rnd < 0:
+            return i
+
+def sample_partition(
+        number_of_elements,
+        scaling_parameter,
+        rng,):
+    groups = []
+    element_ids = [i for i in range(number_of_elements)] # decouple actual element index values, from indexes used to run Dirichlet process
+    rng.shuffle(element_ids)                             # ... thus allowing for us to ensure the "first" index is randomized
+    a = scaling_parameter
+    for i, element_id in enumerate(element_ids):
+        probs = []
+        n = i + 1
+        if i == 0:
+            groups.append([element_id])
+            continue
+        p_new = a/(a + n - 1.0)
+        probs.append(p_new)
+        for group in groups:
+            p = len(group)/(a + n - 1.0)
+            probs.append(p)
+        assert abs(sum(probs) - 1.0) <= 1e-5
+        selected_idx = weighted_index_choice(
+                weights=probs,
+                sum_of_weights=1.0,
+                rng=rng)
+        if selected_idx == 0:
+            groups.append([element_id])
+        else:
+            groups[selected_idx-1].append(element_id)
+    return groups
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-K", "--number-of-elements",
+            type=int,
+            default=10,
+            help="Number of elements in the set. Default: %(default)s.")
+    parser.add_argument("-a", "--scaling-parameter", "--alpha",
+            type=float,
+            default=1.5,
+            help="(Anti-)Concentration or scaling parameter:"
+                 " low values result in a more clumpier/clustered"
+                 " partitions, while higher values result in a more"
+                 " dispersed partitions. Default: %(default)s."
+                 )
+    parser.add_argument("-n", "--num-replicates",
+            type=int,
+            default=10,
+            help="How many draws to run. Default: %(default)s.")
+    parser.add_argument("-v", "--verbosity",
+            type=int,
+            default=1,
+            help="How much to report about what is going on"
+                 " with 0 being almost completely quiet and"
+                 " higher numbers reporting more and more."
+                 " Default: %(default)s.")
+    parser.add_argument("-z", "--random-seed",
+            type=int,
+            default=None,
+            help="Seed for random number generator.")
+
+    args = parser.parse_args()
+    rng = random.Random(args.random_seed)
+
+    num_subsets = []
+    num_elements_in_subsets = []
+    for rep_idx in range(args.num_replicates):
+         partition = sample_partition(
+                number_of_elements=args.number_of_elements,
+                scaling_parameter=args.scaling_parameter,
+                rng=rng)
+         if args.verbosity >= 1:
+            print(partition)
+         num_subsets.append(len(partition))
+         num_elements_in_subsets.append( sum(len(s) for s in partition)/float(len(partition)) )
+    print("---")
+    print("Mean number of subsets per partition: {}".format(
+        sum(num_subsets) / float(len(num_subsets))))
+    print("  Mean number of elements per subset: {}".format(
+        sum(num_elements_in_subsets) / float(len(num_elements_in_subsets))))
+
 class SpeciesPair(object):
 
     index = 0
@@ -140,6 +258,48 @@ class GerenukSimulationModel(object):
         self.num_species_pairs = 4
         self.species_pairs = [SpeciesPair() for i in range(self.num_species_pairs)]
         self.rng = rng
+
+        # shape and scale of Gamma hyperprior on
+        # concentration parameter of Dirichlet process to partition pairs
+        self.prior_num_divergences = (1000.0, 0.00437)
+        # shape and scale of Gamma hyperprior on
+        # theta (population) parameters for daughter species
+        self.prior_theta = (4.0, 0.001)
+        # shape and scale of Gamma hyperprior on
+        # theta (population) parameters for ancestral species
+        self.prior_ancestral_theta = (0, 0)
+        # specification of fixed/free parameters
+        self.theta_constraints = "000"
+        # shape and scale of Gamma hyperprior on
+        # divergence times
+        self.prior_tau = (1.0, 0.02)
+
+    def sample_parameter_values_from_prior(self):
+        params = {}
+        concentration_v = self.rng.gammavariate(*self.prior_num_divergences)
+        params["param.concentration"] = concentration_v
+        groups = sample_partition(
+                number_of_elements=self.num_species_pairs,
+                scaling_parameter=concentration_v, # sample from prior
+                rng=self.rng,
+                )
+        params["param.numDivTimes"] = len(groups)
+        div_time_values = [self.rng.gammavariate(*self.prior_tau) for i in groups]
+        fsc2_run_configurations = [None for i in range(self.num_species_pairs)]
+        div_time_model_desc = [None for i in range(self.num_species_pairs)]
+        expected_spp_ids = set([i for i in range(self.num_species_pairs)])
+        for group_id, group in enumerate(groups):
+            for spp_id in group:
+                assert spp_id in expected_spp_ids
+                div_time_model_desc[spp_id] = str(group_id+1)
+
+                fsc2_run_configurations[spp_id] = "NAs"
+        # code the model as 1100112
+        # vector of div times
+        # for each population pair --- other
+
+        params["param.divModel"] = "".join(div_time_model_desc)
+        return params
 
 class SimulationWorker(multiprocessing.Process):
 
@@ -267,11 +427,7 @@ class SimulationWorker(multiprocessing.Process):
 
     def simulate(self):
         result = {}
-        num_div_times = self.model.rng.randint(1, self.model.num_species_pairs)
-        div_times = [self.model.rng.randint(0, 100000) for i in range(num_div_times)]
-        result["param.numDivTimes"] = num_div_times
-        for sp_idx, sp_pair in enumerate(self.model.species_pairs):
-            result["param.divTime.spp{}".format(sp_idx+1)] = self.model.rng.choice(div_times)
+        result.update(self.model.sample_parameter_values_from_prior())
         return result
 
     def execute_fsc2(self):
