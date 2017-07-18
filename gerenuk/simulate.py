@@ -176,7 +176,7 @@ class GerenukSimulationModel(object):
 
     def __init__(self,
             rng):
-        self.num_lineage_pairs = 1
+        self.num_lineage_pairs = 2
         self.lineage_pairs = tuple(LineagePair() for i in range(self.num_lineage_pairs))
         self.rng = rng
 
@@ -484,48 +484,47 @@ class GerenukSimulator(object):
         self.run_logger.info("Creating work queue")
         work_queue = multiprocessing.Queue()
         for rep_idx in range(nreps):
-            # work_queue.put( (rep_idx, self.rng.randint(1, 1E6)) ) # load worker queue with random seed
-            work_queue.put( rep_idx ) # load worker queue with random seed
+            work_queue.put( rep_idx )
         self.run_logger.info("Launching {} worker processes".format(self.num_processes))
-        # results_queue = multiprocessing.Queue()
-        # messenger_lock = multiprocessing.Lock()
-        # workers = []
-        # for pidx in range(self.num_processes):
-        #     worker = self.worker_class(
-        #             name=str(pidx+1),
-        #             model=self.model,
-        #             work_queue=work_queue,
-        #             results_queue=results_queue,
-        #             fsc2_path=self.fsc2_path,
-        #             working_directory=self.working_directory,
-        #             run_logger=self.run_logger,
-        #             logging_frequency=self.logging_frequency,
-        #             messenger_lock=messenger_lock,
-        #             debug_mode=self.is_debug_mode,
-        #             )
-        #     worker.start()
-        #     workers.append(worker)
+        results_queue = multiprocessing.Queue()
+        messenger_lock = multiprocessing.Lock()
+        workers = []
+        for pidx in range(self.num_processes):
+            worker = self.worker_class(
+                    name=str(pidx+1),
+                    model=self.model,
+                    work_queue=work_queue,
+                    results_queue=results_queue,
+                    fsc2_path=self.fsc2_path,
+                    working_directory=self.working_directory,
+                    run_logger=self.run_logger,
+                    logging_frequency=self.logging_frequency,
+                    messenger_lock=messenger_lock,
+                    debug_mode=self.is_debug_mode,
+                    )
+            worker.start()
+            workers.append(worker)
 
-        # # collate results
-        # result_count = 0
-        # results_collator = []
-        # try:
-        #     while result_count < nreps:
-        #         result = results_queue.get()
-        #         if isinstance(result, Exception) or isinstance(result, KeyboardInterrupt):
-        #             self.run_logger.error("Exception raised in worker process '{}'".format(result.worker_name))
-        #             self.run_logger.error("Traceback>>>\n{}<<<Traceback\n".format(result.traceback_exc))
-        #             raise result
-        #         results_collator.append(result)
-        #         # self.run_logger.info("Recovered results from worker process '{}'".format(result.worker_name))
-        #         result_count += 1
-        #         # self.info_message("Recovered results from {} of {} worker processes".format(result_count, self.num_processes))
-        # except (Exception, KeyboardInterrupt) as e:
-        #     for worker in workers:
-        #         worker.terminate()
-        #     raise
-        # self.run_logger.info("All {} worker processes terminated".format(self.num_processes))
-        # return results_collator
+        # collate results
+        result_count = 0
+        results_collator = []
+        try:
+            while result_count < nreps:
+                result = results_queue.get()
+                if isinstance(result, Exception) or isinstance(result, KeyboardInterrupt):
+                    self.run_logger.error("Exception raised in worker process '{}'".format(result.worker_name))
+                    self.run_logger.error("Traceback>>>\n{}<<<Traceback\n".format(result.traceback_exc))
+                    raise result
+                results_collator.append(result)
+                # self.run_logger.info("Recovered results from worker process '{}'".format(result.worker_name))
+                result_count += 1
+                # self.info_message("Recovered results from {} of {} worker processes".format(result_count, self.num_processes))
+        except (Exception, KeyboardInterrupt) as e:
+            for worker in workers:
+                worker.terminate()
+            raise
+        self.run_logger.info("All {} worker processes terminated".format(self.num_processes))
+        return results_collator
 
 
 if __name__ == "__main__":
