@@ -176,7 +176,7 @@ class GerenukSimulationModel(object):
 
     def __init__(self,
             rng):
-        self.num_lineage_pairs = 4
+        self.num_lineage_pairs = 1
         self.lineage_pairs = tuple(LineagePair() for i in range(self.num_lineage_pairs))
         self.rng = rng
 
@@ -240,7 +240,7 @@ class GerenukSimulationModel(object):
         # for each population pair --- other
 
         params["param.divModel"] = "".join(div_time_model_desc)
-        return params
+        return params, fsc2_run_configurations
 
 class SimulationWorker(multiprocessing.Process):
 
@@ -250,6 +250,7 @@ class SimulationWorker(multiprocessing.Process):
             work_queue,
             results_queue,
             fsc2_path,
+            working_directory,
             run_logger,
             logging_frequency,
             messenger_lock,
@@ -260,6 +261,7 @@ class SimulationWorker(multiprocessing.Process):
         self.work_queue = work_queue
         self.results_queue = results_queue
         self.fsc2_path = fsc2_path
+        self.working_directory = working_directory
         self.run_logger = run_logger
         self.logging_frequency = logging_frequency
         self.messenger_lock = messenger_lock
@@ -268,32 +270,33 @@ class SimulationWorker(multiprocessing.Process):
         self.num_tasks_completed = 0
         self.is_debug_mode = debug_mode
 
+        self.is_file_system_staged = False
         self.num_executions = 0
         self._fsc2_parameter_filepath = None
         self._current_execution_id = None
 
+    def stage_filesystem(self):
+        if not os.path.exists(self.working_directory):
+            os.makedirs(self.working_directory)
+        self.is_file_system_staged = True
+
     def _get_current_execution_id(self):
         if self._current_execution_id is None:
-            self._current_execution_id = "".join([self.title, "-{:06d}".format(self.num_executions),
+            self._current_execution_id = "".join([self.name, "-{:06d}".format(self.num_executions),
                 ])
         return self._current_execution_id
     current_execution_id = property(_get_current_execution_id)
 
     def _get_fsc2_parameter_filepath(self):
         if self._fsc2_parameter_filepath is None:
-            if self.is_debug_mode:
-                self._fsc2_parameter_filepath = ".".join([self.current_execution_id, "par"])
-            else:
-                self._fsc2_parameter_filepath = ".".join([self.title, "par"])
+            self._fsc2_parameter_filepath = os.path.join(self.working_directory, ".".join([self.name, "par"]))
         return self._fsc2_parameter_filepath
     fsc2_parameter_filepath = property(_get_fsc2_parameter_filepath)
 
-    def _generate_fsc2_parameter_file(self):
+    def _generate_fsc2_parameter_file(self, fsc2_config_d):
         assert self.fsc2_parameter_filepath
-        if self.is_verbose_setup:
-            self.run_logger.info("Creating parameter file: '{}'".format(self.fsc2_parameter_filepath))
         with open(self.fsc2_parameter_filepath, "w") as dest:
-            config = FSC2_CONFIG_TEMPLATE
+            config = FSC2_CONFIG_TEMPLATE.format(fsc2_config_d)
             dest.write(config)
 
     def _new_execution_reset(self):
@@ -302,7 +305,8 @@ class SimulationWorker(multiprocessing.Process):
 
     def _setup_for_execution(self):
         self._new_execution_reset()
-        self._generate_fsc2_parameter_file()
+        if not self.is_file_system_staged:
+            self.stage_filesystem()
 
     def _post_execution_cleanup(self):
         pass
@@ -368,11 +372,15 @@ class SimulationWorker(multiprocessing.Process):
 
     def simulate(self):
         result = {}
-        result.update(self.model.sample_parameter_values_from_prior())
+        params, fsc2_run_configurations = self.model.sample_parameter_values_from_prior()
+        result.update(params)
+        for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
+            self.execute_fsc2(fsc2_run_configurations[lineage_pair_idx])
         return result
 
-    def execute_fsc2(self):
+    def execute_fsc2(self, fsc2_config_d):
         self._setup_for_execution()
+        self._generate_fsc2_parameter_file(fsc2_config_d)
         cmds = []
         cmds.append(self.fsc2_path)
         cmds.extend(["-n", "1"]) # number of simulations to perform
@@ -432,6 +440,7 @@ class GerenukSimulator(object):
             self.name = str(id(self))
         self.title = "gerenuk-{}".format(self.name)
         self.output_prefix = config_d.pop("output_prefix", self.title)
+        self.working_direcotry = config_d.pop("working_directory", "." + self.title)
         self.run_logger = config_d.pop("run_logger", None)
         if self.run_logger is None:
             self.run_logger = utility.RunLogger(
@@ -488,6 +497,7 @@ class GerenukSimulator(object):
                     work_queue=work_queue,
                     results_queue=results_queue,
                     fsc2_path=self.fsc2_path,
+                    working_directory=self.working_directory,
                     run_logger=self.run_logger,
                     logging_frequency=self.logging_frequency,
                     messenger_lock=messenger_lock,
