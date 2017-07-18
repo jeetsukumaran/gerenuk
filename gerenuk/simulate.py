@@ -33,6 +33,7 @@ import subprocess
 import random
 import sys
 import os
+import time
 try:
     # Python 3
     import queue
@@ -289,14 +290,15 @@ class SimulationWorker(multiprocessing.Process):
 
     def _get_fsc2_parameter_filepath(self):
         if self._fsc2_parameter_filepath is None:
-            self._fsc2_parameter_filepath = os.path.join(self.working_directory, ".".join([self.name, "par"]))
+            # self._fsc2_parameter_filepath = os.path.join(self.working_directory, ".".join([self.name, "par"]))
+            self._fsc2_parameter_filepath = ".".join([self.name, "par"])
         return self._fsc2_parameter_filepath
     fsc2_parameter_filepath = property(_get_fsc2_parameter_filepath)
 
     def _generate_fsc2_parameter_file(self, fsc2_config_d):
         assert self.fsc2_parameter_filepath
-        with open(self.fsc2_parameter_filepath, "w") as dest:
-            config = FSC2_CONFIG_TEMPLATE.format(fsc2_config_d)
+        with open(os.path.join(self.working_directory, self.fsc2_parameter_filepath), "w") as dest:
+            config = FSC2_CONFIG_TEMPLATE.format(**fsc2_config_d)
             dest.write(config)
 
     def _new_execution_reset(self):
@@ -384,7 +386,7 @@ class SimulationWorker(multiprocessing.Process):
         cmds = []
         cmds.append(self.fsc2_path)
         cmds.extend(["-n", "1"]) # number of simulations to perform
-        cmds.extend(["-r", str(self.rng.randint(1, 1E6))]) # seed for random number generator (positive integer <= 1E6)
+        cmds.extend(["-r", str(self.model.rng.randint(1, 1E6))]) # seed for random number generator (positive integer <= 1E6)
         cmds.extend(["-d", "-s0", "-x", "-I", ])
         cmds.extend(["-i", self.fsc2_parameter_filepath])
         self.run_logger.info("Running FastSimCoal2")
@@ -393,6 +395,7 @@ class SimulationWorker(multiprocessing.Process):
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                cwd=self.working_directory,
                 )
         stdout, stderr = utility.communicate_process(p)
         self.num_executions += 1
@@ -440,7 +443,7 @@ class GerenukSimulator(object):
             self.name = str(id(self))
         self.title = "gerenuk-{}".format(self.name)
         self.output_prefix = config_d.pop("output_prefix", self.title)
-        self.working_direcotry = config_d.pop("working_directory", "." + self.title)
+        self.working_directory = config_d.pop("working_directory", self.title)
         self.run_logger = config_d.pop("run_logger", None)
         if self.run_logger is None:
             self.run_logger = utility.RunLogger(
@@ -485,6 +488,7 @@ class GerenukSimulator(object):
         work_queue = multiprocessing.Queue()
         for rep_idx in range(nreps):
             work_queue.put( rep_idx )
+        time.sleep(0.1) # to avoid: 'IOError: [Errno 32] Broken pipe'; https://stackoverflow.com/questions/36359528/broken-pipe-error-with-multiprocessing-queue
         self.run_logger.info("Launching {} worker processes".format(self.num_processes))
         results_queue = multiprocessing.Queue()
         messenger_lock = multiprocessing.Lock()
@@ -534,7 +538,7 @@ if __name__ == "__main__":
             num_processes=3,
             is_verbose_setup=True)
     try:
-        results = gs.execute(1000)
+        results = gs.execute(5)
     except Exception as e:
         sys.exit(1)
     print(results)
