@@ -31,8 +31,9 @@ class MpArchitectureTests(unittest.TestCase):
         results = gs.execute(nreps)
         self.assertEqual(len(results), nreps)
         counter = Counter()
-        for result in results:
+        for result_idx, result in enumerate(results):
             counter[result["name"]] += 1
+        # print(counter.keys()) # heisenbug wave-collapse!!
         self.assertEqual(len(counter), num_processes)
 
 if __name__ == "__main__":

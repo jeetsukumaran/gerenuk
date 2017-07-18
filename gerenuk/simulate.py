@@ -163,19 +163,16 @@ def sample_partition(
     return groups
 
 class Deme(object):
-    index = 0
     def __init__(self):
-        Deme.index += 1
         self.num_population_genes = 1000
         self.num_sampled_genes = 20
 
 class LineagePair(object):
-    index = 0
     def __init__(self):
-        LineagePair.index += 1
         self.demes = (Deme(), Deme())
 
 class GerenukSimulationModel(object):
+    pass
 
     def __init__(self,
             rng):
@@ -183,52 +180,52 @@ class GerenukSimulationModel(object):
         self.lineage_pairs = (LineagePair() for i in range(self.num_lineage_pairs))
         self.rng = rng
 
-        # shape and scale of Gamma hyperprior on
-        # concentration parameter of Dirichlet process to partition pairs
-        self.prior_num_divergences = (1000.0, 0.00437)
-        # shape and scale of Gamma hyperprior on
-        # theta (population) parameters for daughter deme
-        self.prior_theta = (4.0, 0.001)
-        # shape and scale of Gamma hyperprior on
-        # theta (population) parameters for ancestral deme
-        self.prior_ancestral_theta = (0, 0)
-        # specification of fixed/free parameters
-        self.theta_constraints = "000"
-        # shape and scale of Gamma hyperprior on
-        # divergence times
-        self.prior_tau = (1.0, 0.02)
+        # # shape and scale of Gamma hyperprior on
+        # # concentration parameter of Dirichlet process to partition pairs
+        # self.prior_num_divergences = (1000.0, 0.00437)
+        # # shape and scale of Gamma hyperprior on
+        # # theta (population) parameters for daughter deme
+        # self.prior_theta = (4.0, 0.001)
+        # # shape and scale of Gamma hyperprior on
+        # # theta (population) parameters for ancestral deme
+        # self.prior_ancestral_theta = (0, 0)
+        # # specification of fixed/free parameters
+        # self.theta_constraints = "000"
+        # # shape and scale of Gamma hyperprior on
+        # # divergence times
+        # self.prior_tau = (1.0, 0.02)
 
-    def sample_parameter_values_from_prior(self):
-        params = {}
-        concentration_v = self.rng.gammavariate(*self.prior_num_divergences)
-        params["param.concentration"] = concentration_v
-        groups = sample_partition(
-                number_of_elements=self.num_lineage_pairs,
-                scaling_parameter=concentration_v, # sample from prior
-                rng=self.rng,
-                )
-        params["param.numDivTimes"] = len(groups)
-        div_time_values = [self.rng.gammavariate(*self.prior_tau) for i in groups]
-        fsc2_run_configurations = [None for i in range(self.num_lineage_pairs)]
-        div_time_model_desc = [None for i in range(self.num_lineage_pairs)]
-        expected_lineage_pair_ids = set([i for i in range(self.num_lineage_pairs)])
-        for group_id, group in enumerate(groups):
-            for lineage_pair_id in group:
-                assert lineage_pair_id in expected_lineage_pair_ids
-                fsc2_config_d = {}
+    # def sample_parameter_values_from_prior(self):
+        # params = {}
+        # concentration_v = self.rng.gammavariate(*self.prior_num_divergences)
+        # params["param.concentration"] = concentration_v
+        # groups = sample_partition(
+        #         number_of_elements=self.num_lineage_pairs,
+        #         scaling_parameter=concentration_v, # sample from prior
+        #         rng=self.rng,
+        #         )
+        # params["param.numDivTimes"] = len(groups)
+        # div_time_values = [self.rng.gammavariate(*self.prior_tau) for i in groups]
+        # fsc2_run_configurations = [None for i in range(self.num_lineage_pairs)]
+        # div_time_model_desc = [None for i in range(self.num_lineage_pairs)]
+        # expected_lineage_pair_ids = set([i for i in range(self.num_lineage_pairs)])
+        # for group_id, group in enumerate(groups):
+        #     for lineage_pair_id in group:
+        #         assert lineage_pair_id in expected_lineage_pair_ids
+        #         fsc2_config_d = {}
 
-                fsc2_config_d["div_time"] = div_time_values[group_id]
-                div_time_model_desc[lineage_pair_id] = str(group_id+1)
-                params["param.divTime.spp{}".format(lineage_pair_id)] = div_time_values[group_id]
-                fsc2_config_d["div_time"] = div_time_values[group_id]
+        #         fsc2_config_d["div_time"] = div_time_values[group_id]
+        #         div_time_model_desc[lineage_pair_id] = str(group_id+1)
+        #         params["param.divTime.spp{}".format(lineage_pair_id)] = div_time_values[group_id]
+        #         fsc2_config_d["div_time"] = div_time_values[group_id]
 
-                fsc2_run_configurations[lineage_pair_id] = fsc2_config_d
-        # code the model as 1100112
-        # vector of div times
-        # for each population pair --- other
+        #         fsc2_run_configurations[lineage_pair_id] = fsc2_config_d
+        # # code the model as 1100112
+        # # vector of div times
+        # # for each population pair --- other
 
-        params["param.divModel"] = "".join(div_time_model_desc)
-        return params
+        # params["param.divModel"] = "".join(div_time_model_desc)
+        # return params
 
 class SimulationWorker(multiprocessing.Process):
 
