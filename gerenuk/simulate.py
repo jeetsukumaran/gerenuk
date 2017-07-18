@@ -66,32 +66,7 @@ from gerenuk import utility
 # //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
 # 1
 # //per Block:data type, number of loci, per generation recombination and mutation rates and optional parameters
-# DNA 100 0 2.5e-6 OUTEXP
-# """
-
-# FSC2_CONFIG_TEMPLATE = """\
-# //Number of population samples (demes)
-# 2
-# //Population effective sizes (number of genes)
-# 1000
-# 1000
-# //Sample sizes
-# 10
-# 10
-# //Growth rates: negative growth implies population expansion
-# 0
-# 0
-# //Number of migration matrices : 0 implies no migration between demes
-# 0
-# //historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event
-# 1  historical event
-# 10000 0 1 1 2 0 0
-# //Number of independent loci [chromosome]
-# 1 0
-# //Per chromosome: Number of linkage blocks
-# 1
-# //per Block: data type, num loci, rec. rate and mut rate + optional parameters
-# DNA 1 0.00000 0.02 0.33
+# DNA 10 0.00000 0.02 0.33
 # """
 
 FSC2_CONFIG_TEMPLATE = """\
@@ -110,7 +85,7 @@ FSC2_CONFIG_TEMPLATE = """\
 0
 //historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event
 1  historical event
-10000 0 1 1 2 0 0
+{div_time} 0 1 1 2 0 0
 //Number of independent loci [chromosome]
 1 0
 //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
@@ -187,86 +162,35 @@ def sample_partition(
             groups[selected_idx-1].append(element_id)
     return groups
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-K", "--number-of-elements",
-            type=int,
-            default=10,
-            help="Number of elements in the set. Default: %(default)s.")
-    parser.add_argument("-a", "--scaling-parameter", "--alpha",
-            type=float,
-            default=1.5,
-            help="(Anti-)Concentration or scaling parameter:"
-                 " low values result in a more clumpier/clustered"
-                 " partitions, while higher values result in a more"
-                 " dispersed partitions. Default: %(default)s."
-                 )
-    parser.add_argument("-n", "--num-replicates",
-            type=int,
-            default=10,
-            help="How many draws to run. Default: %(default)s.")
-    parser.add_argument("-v", "--verbosity",
-            type=int,
-            default=1,
-            help="How much to report about what is going on"
-                 " with 0 being almost completely quiet and"
-                 " higher numbers reporting more and more."
-                 " Default: %(default)s.")
-    parser.add_argument("-z", "--random-seed",
-            type=int,
-            default=None,
-            help="Seed for random number generator.")
-
-    args = parser.parse_args()
-    rng = random.Random(args.random_seed)
-
-    num_subsets = []
-    num_elements_in_subsets = []
-    for rep_idx in range(args.num_replicates):
-         partition = sample_partition(
-                number_of_elements=args.number_of_elements,
-                scaling_parameter=args.scaling_parameter,
-                rng=rng)
-         if args.verbosity >= 1:
-            print(partition)
-         num_subsets.append(len(partition))
-         num_elements_in_subsets.append( sum(len(s) for s in partition)/float(len(partition)) )
-    print("---")
-    print("Mean number of subsets per partition: {}".format(
-        sum(num_subsets) / float(len(num_subsets))))
-    print("  Mean number of elements per subset: {}".format(
-        sum(num_elements_in_subsets) / float(len(num_elements_in_subsets))))
-
-class SpeciesPair(object):
-
+class Deme(object):
     index = 0
-
     def __init__(self):
-        SpeciesPair.index += 1
-        self.label = "S{:02}".format(SpeciesPair.index)
-        self.num_population_genes = [1000, 1000]
-        self.num_sampled_genes = [20, 20]
-        self.divergence_time = 100000
-        self.num_loci = 10
-        self.mutation_rate = 1e-6
-        self.transition_bias = 0.3
+        Deme.index += 1
+        self.num_population_genes = 1000
+        self.num_sampled_genes = 20
+
+class LineagePair(object):
+    index = 0
+    def __init__(self):
+        LineagePair.index += 1
+        self.demes = (Deme(), Deme())
 
 class GerenukSimulationModel(object):
 
     def __init__(self,
             rng):
-        self.num_species_pairs = 4
-        self.species_pairs = [SpeciesPair() for i in range(self.num_species_pairs)]
+        self.num_lineage_pairs = 4
+        self.lineage_pairs = (LineagePair() for i in range(self.num_lineage_pairs))
         self.rng = rng
 
         # shape and scale of Gamma hyperprior on
         # concentration parameter of Dirichlet process to partition pairs
         self.prior_num_divergences = (1000.0, 0.00437)
         # shape and scale of Gamma hyperprior on
-        # theta (population) parameters for daughter species
+        # theta (population) parameters for daughter deme
         self.prior_theta = (4.0, 0.001)
         # shape and scale of Gamma hyperprior on
-        # theta (population) parameters for ancestral species
+        # theta (population) parameters for ancestral deme
         self.prior_ancestral_theta = (0, 0)
         # specification of fixed/free parameters
         self.theta_constraints = "000"
@@ -279,21 +203,26 @@ class GerenukSimulationModel(object):
         concentration_v = self.rng.gammavariate(*self.prior_num_divergences)
         params["param.concentration"] = concentration_v
         groups = sample_partition(
-                number_of_elements=self.num_species_pairs,
+                number_of_elements=self.num_lineage_pairs,
                 scaling_parameter=concentration_v, # sample from prior
                 rng=self.rng,
                 )
         params["param.numDivTimes"] = len(groups)
         div_time_values = [self.rng.gammavariate(*self.prior_tau) for i in groups]
-        fsc2_run_configurations = [None for i in range(self.num_species_pairs)]
-        div_time_model_desc = [None for i in range(self.num_species_pairs)]
-        expected_spp_ids = set([i for i in range(self.num_species_pairs)])
+        fsc2_run_configurations = [None for i in range(self.num_lineage_pairs)]
+        div_time_model_desc = [None for i in range(self.num_lineage_pairs)]
+        expected_lineage_pair_ids = set([i for i in range(self.num_lineage_pairs)])
         for group_id, group in enumerate(groups):
-            for spp_id in group:
-                assert spp_id in expected_spp_ids
-                div_time_model_desc[spp_id] = str(group_id+1)
+            for lineage_pair_id in group:
+                assert lineage_pair_id in expected_lineage_pair_ids
+                fsc2_config_d = {}
 
-                fsc2_run_configurations[spp_id] = "NAs"
+                fsc2_config_d["div_time"] = div_time_values[group_id]
+                div_time_model_desc[lineage_pair_id] = str(group_id+1)
+                params["param.divTime.spp{}".format(lineage_pair_id)] = div_time_values[group_id]
+                fsc2_config_d["div_time"] = div_time_values[group_id]
+
+                fsc2_run_configurations[lineage_pair_id] = fsc2_config_d
         # code the model as 1100112
         # vector of div times
         # for each population pair --- other
@@ -475,9 +404,14 @@ class GerenukSimulator(object):
             self.num_processes = num_processes
         if self.is_verbose_setup:
             self.run_logger.info("Will run up to {} processes in parallel".format(self.num_processes))
-            self.run_logger.info("{} pairs of species in analysis:".format(self.model.num_species_pairs))
-            for spidx, sp in enumerate(self.model.species_pairs):
-                self.run_logger.info("    {:>3d}. '{}': {} / {}".format(spidx+1, sp.label, sp.num_sampled_genes[0], sp.num_sampled_genes[1]))
+            self.run_logger.info("{} pairs of demes in analysis:".format(self.model.num_lineage_pairs))
+            for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
+                self.run_logger.info("    {:>3d}. {} / {}".format(
+                        lineage_pair_idx+1,
+                        lineage_pair.demes[0].num_sampled_genes,
+                        lineage_pair.demes[1].num_sampled_genes,
+                        ))
+
         self.worker_class = SimulationWorker
 
     def configure_simulator(self, config_d, verbose=True):
