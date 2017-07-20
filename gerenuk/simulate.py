@@ -530,7 +530,6 @@ class GerenukSimulator(object):
         self.run_logger.info("All {} worker processes terminated".format(self.num_processes))
         return results_collator
 
-
 if __name__ == "__main__":
     config_d = {"name": "test"}
     gs = GerenukSimulator(

@@ -3,10 +3,10 @@
 ##############################################################################
 ## Copyright (c) 2017 Jeet Sukumaran.
 ## All rights reserved.
-## 
+##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions are met:
-## 
+##
 ##     * Redistributions of source code must retain the above copyright
 ##       notice, this list of conditions and the following disclaimer.
 ##     * Redistributions in binary form must reproduce the above copyright
@@ -15,7 +15,7 @@
 ##     * The names of its contributors may not be used to endorse or promote
 ##       products derived from this software without specific prior written
 ##       permission.
-## 
+##
 ## THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
 ## IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
 ## THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -27,6 +27,18 @@
 ## CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ## ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ## POSSIBILITY OF SUCH DAMAGE.
-## 
+##
 ##############################################################################
 
+# try:
+#     import pkg_resources
+#     # TESTS_DIR = pkg_resources.resource_filename("dendropy", os.path.join(os.pardir, "tests"))
+#     TESTS_DIR = pkg_resources.resource_filename("dendropy", "test")
+#     APPLICATIONS_DIR = pkg_resources.resource_filename("dendropy", os.path.join(os.pardir, "applications"))
+#     _LOG.info("using pkg_resources path mapping")
+# except:
+#     LOCAL_DIR = os.path.dirname(__file__)
+#     TESTS_DIR = os.path.join(LOCAL_DIR, os.path.pardir)
+#     PACKAGE_DIR = os.path.join(TESTS_DIR, os.path.pardir)
+#     APPLICATIONS_DIR = os.path.join(PACKAGE_DIR, os.path.pardir, "applications")
+#     _LOG.info("using local filesystem path mapping")
