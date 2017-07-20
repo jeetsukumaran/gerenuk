@@ -244,6 +244,10 @@ class GerenukSimulationModel(object):
         params["param.divModel"] = "".join(div_time_model_desc)
         return params, fsc2_run_configurations
 
+class Fsc2RuntimeError(RuntimeError):
+    def __init__(self, msg):
+        RuntimeError.__init__(self, msg)
+
 class Fsc2Handler(object):
 
     def __init__(self, name, fsc2_path, working_directory):
@@ -367,6 +371,8 @@ class Fsc2Handler(object):
                 cwd=self.working_directory,
                 )
         stdout, stderr = utility.communicate_process(p)
+        if p.returncode != 0:
+            raise Fsc2RuntimeError("FastSimCoal2 execution failure: {}".format(stderr))
         self._num_executions += 1
         self._post_execution_cleanup()
 
