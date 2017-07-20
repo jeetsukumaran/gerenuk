@@ -249,43 +249,50 @@ class Fsc2Handler(object):
         self.name = name
         self.fsc2_path = fsc2_path
         self.working_directory = working_directory
-        self.is_file_system_staged = False
-        self.num_executions = 0
-        self._fsc2_parameter_filepath = None
+        self._is_file_system_staged = False
+        self._num_executions = 0
+        self._parameter_filepath = None
+        self._results_dirpath = None
         self._current_execution_id = None
 
     def stage_filesystem(self):
         if not os.path.exists(self.working_directory):
             os.makedirs(self.working_directory)
-        self.is_file_system_staged = True
+        self._is_file_system_staged = True
 
     def _get_current_execution_id(self):
         if self._current_execution_id is None:
-            self._current_execution_id = "".join([self.name, "-{:06d}".format(self.num_executions),
+            self._current_execution_id = "".join([self.name, "-{:06d}".format(self._num_executions),
                 ])
         return self._current_execution_id
     current_execution_id = property(_get_current_execution_id)
 
-    def _get_fsc2_parameter_filepath(self):
-        if self._fsc2_parameter_filepath is None:
-            # self._fsc2_parameter_filepath = os.path.join(self.working_directory, ".".join([self.name, "par"]))
-            self._fsc2_parameter_filepath = ".".join([self.name, "par"])
-        return self._fsc2_parameter_filepath
-    fsc2_parameter_filepath = property(_get_fsc2_parameter_filepath)
+    def _get_parameter_filepath(self):
+        if self._parameter_filepath is None:
+            # self._parameter_filepath = os.path.join(self.working_directory, ".".join([self.name, "par"]))
+            self._parameter_filepath = ".".join([self.name, "par"])
+        return self._parameter_filepath
+    parameter_filepath = property(_get_parameter_filepath)
 
-    def _generate_fsc2_parameter_file(self, fsc2_config_d):
-        assert self.fsc2_parameter_filepath
-        with open(os.path.join(self.working_directory, self.fsc2_parameter_filepath), "w") as dest:
+    def _get_results_dirpath(self):
+        if self._results_dirpath is None:
+            self._results_dirpath = os.path.splitext(self.parameter_filepath)[1]
+        return self._results_dirpath
+    results_dirpath = property(_get_results_dirpath)
+
+    def _generate_parameter_file(self, fsc2_config_d):
+        assert self.parameter_filepath
+        with open(os.path.join(self.working_directory, self.parameter_filepath), "w") as dest:
             config = FSC2_CONFIG_TEMPLATE.format(**fsc2_config_d)
             dest.write(config)
 
     def _new_execution_reset(self):
         self._current_execution_id = None
-        self._fsc2_parameter_filepath = None
+        self._parameter_filepath = None
 
     def _setup_for_execution(self):
         self._new_execution_reset()
-        if not self.is_file_system_staged:
+        if not self._is_file_system_staged:
             self.stage_filesystem()
 
     def _post_execution_cleanup(self):
@@ -295,13 +302,13 @@ class Fsc2Handler(object):
             fsc2_config_d,
             random_seed,):
         self._setup_for_execution()
-        self._generate_fsc2_parameter_file(fsc2_config_d)
+        self._generate_parameter_file(fsc2_config_d)
         cmds = []
         cmds.append(self.fsc2_path)
         cmds.extend(["-n", "1"]) # number of simulations to perform
         cmds.extend(["-r", str(random_seed)]) # seed for random number generator (positive integer <= 1E6)
         cmds.extend(["-d", "-s0", "-x", "-I", ])
-        cmds.extend(["-i", self.fsc2_parameter_filepath])
+        cmds.extend(["-i", self.parameter_filepath])
         p = subprocess.Popen(cmds,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -309,7 +316,7 @@ class Fsc2Handler(object):
                 cwd=self.working_directory,
                 )
         stdout, stderr = utility.communicate_process(p)
-        self.num_executions += 1
+        self._num_executions += 1
         self._post_execution_cleanup()
 
 class SimulationWorker(multiprocessing.Process):

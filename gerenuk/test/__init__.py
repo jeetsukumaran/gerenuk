@@ -30,14 +30,16 @@
 ##
 ##############################################################################
 
+import os
 try:
     import pkg_resources
     TESTS_DIR = pkg_resources.resource_filename("gerenuk", "test")
+    TESTS_DATA_DIR = pkg_resources.resource_filename("gerenuk", os.path.join("test", "data", "fsc-results"))
     APPLICATIONS_DIR = pkg_resources.resource_filename("gerenuk", os.path.join(os.pardir, "applications"))
-    _LOG.info("using pkg_resources path mapping")
 except:
+    raise
     LOCAL_DIR = os.path.dirname(__file__)
     TESTS_DIR = os.path.join(LOCAL_DIR, os.path.pardir)
+    TESTS_DATA_DIR = os.path.join(TESTS_DIR, "data")
     PACKAGE_DIR = os.path.join(TESTS_DIR, os.path.pardir)
     APPLICATIONS_DIR = os.path.join(PACKAGE_DIR, os.path.pardir, "applications")
-    _LOG.info("using local filesystem path mapping")
