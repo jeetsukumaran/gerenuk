@@ -243,34 +243,12 @@ class GerenukSimulationModel(object):
         params["param.divModel"] = "".join(div_time_model_desc)
         return params, fsc2_run_configurations
 
-class SimulationWorker(multiprocessing.Process):
+class Fsc2Handler(object):
 
-    def __init__(self,
-            name,
-            model,
-            work_queue,
-            results_queue,
-            fsc2_path,
-            working_directory,
-            run_logger,
-            logging_frequency,
-            messenger_lock,
-            debug_mode,
-            ):
-        multiprocessing.Process.__init__(self, name=name)
-        self.model = model
-        self.work_queue = work_queue
-        self.results_queue = results_queue
+    def __init__(self, name, fsc2_path, working_directory):
+        self.name = name
         self.fsc2_path = fsc2_path
         self.working_directory = working_directory
-        self.run_logger = run_logger
-        self.logging_frequency = logging_frequency
-        self.messenger_lock = messenger_lock
-        self.kill_received = False
-        self.num_tasks_received = 0
-        self.num_tasks_completed = 0
-        self.is_debug_mode = debug_mode
-
         self.is_file_system_staged = False
         self.num_executions = 0
         self._fsc2_parameter_filepath = None
@@ -312,6 +290,57 @@ class SimulationWorker(multiprocessing.Process):
 
     def _post_execution_cleanup(self):
         pass
+
+    def run(self,
+            fsc2_config_d,
+            random_seed,):
+        self._setup_for_execution()
+        self._generate_fsc2_parameter_file(fsc2_config_d)
+        cmds = []
+        cmds.append(self.fsc2_path)
+        cmds.extend(["-n", "1"]) # number of simulations to perform
+        cmds.extend(["-r", str(random_seed)]) # seed for random number generator (positive integer <= 1E6)
+        cmds.extend(["-d", "-s0", "-x", "-I", ])
+        cmds.extend(["-i", self.fsc2_parameter_filepath])
+        p = subprocess.Popen(cmds,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=self.working_directory,
+                )
+        stdout, stderr = utility.communicate_process(p)
+        self.num_executions += 1
+        self._post_execution_cleanup()
+
+class SimulationWorker(multiprocessing.Process):
+
+    def __init__(self,
+            name,
+            model,
+            work_queue,
+            results_queue,
+            fsc2_path,
+            working_directory,
+            run_logger,
+            logging_frequency,
+            messenger_lock,
+            debug_mode,
+            ):
+        multiprocessing.Process.__init__(self, name=name)
+        self.fsc2_handler = Fsc2Handler(
+                name=name,
+                fsc2_path=fsc2_path,
+                working_directory=working_directory)
+        self.model = model
+        self.work_queue = work_queue
+        self.results_queue = results_queue
+        self.run_logger = run_logger
+        self.logging_frequency = logging_frequency
+        self.messenger_lock = messenger_lock
+        self.kill_received = False
+        self.num_tasks_received = 0
+        self.num_tasks_completed = 0
+        self.is_debug_mode = debug_mode
 
     def send_worker_message(self, msg, level):
         if self.run_logger is None:
@@ -365,7 +394,7 @@ class SimulationWorker(multiprocessing.Process):
             self.results_queue.put(result)
             self.num_tasks_completed += 1
             # self.send_info("Completed task {task_count}: '{task_name}'".format(
-            if rep_idx % self.logging_frequency == 0:
+            if rep_idx and self.logging_frequency and rep_idx % self.logging_frequency == 0:
                 self.run_logger.info("Completed replicate {task_name}".format(
                     task_count=self.num_tasks_received,
                     task_name=rep_idx))
@@ -377,29 +406,11 @@ class SimulationWorker(multiprocessing.Process):
         params, fsc2_run_configurations = self.model.sample_parameter_values_from_prior()
         result.update(params)
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
-            self.execute_fsc2(fsc2_run_configurations[lineage_pair_idx])
+            self.fsc2_handler.run(
+                    fsc2_config_d=fsc2_run_configurations[lineage_pair_idx],
+                    random_seed=self.model.rng.randint(1, 1E6),
+                    )
         return result
-
-    def execute_fsc2(self, fsc2_config_d):
-        self._setup_for_execution()
-        self._generate_fsc2_parameter_file(fsc2_config_d)
-        cmds = []
-        cmds.append(self.fsc2_path)
-        cmds.extend(["-n", "1"]) # number of simulations to perform
-        cmds.extend(["-r", str(self.model.rng.randint(1, 1E6))]) # seed for random number generator (positive integer <= 1E6)
-        cmds.extend(["-d", "-s0", "-x", "-I", ])
-        cmds.extend(["-i", self.fsc2_parameter_filepath])
-        self.run_logger.info("Running FastSimCoal2")
-        self.run_logger.info(cmds)
-        p = subprocess.Popen(cmds,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=self.working_directory,
-                )
-        stdout, stderr = utility.communicate_process(p)
-        self.num_executions += 1
-        self._post_execution_cleanup()
 
 class GerenukSimulator(object):
 
@@ -516,8 +527,10 @@ class GerenukSimulator(object):
             while result_count < nreps:
                 result = results_queue.get()
                 if isinstance(result, Exception) or isinstance(result, KeyboardInterrupt):
-                    self.run_logger.error("Exception raised in worker process '{}'".format(result.worker_name))
-                    self.run_logger.error("Traceback>>>\n{}<<<Traceback\n".format(result.traceback_exc))
+                    self.run_logger.error("Exception raised in worker process '{}'"
+                                          "\n>>>\n{}<<<\n".format(
+                                              result.worker_name,
+                                              result.traceback_exc))
                     raise result
                 results_collator.append(result)
                 # self.run_logger.info("Recovered results from worker process '{}'".format(result.worker_name))
