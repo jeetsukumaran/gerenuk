@@ -167,7 +167,7 @@ def sample_partition(
 class Deme(object):
     def __init__(self):
         self.population_size = 1000 # in number of genes, i.e. N for haploid or 2N for diploid
-        self.sample_size = 20 # in number of genes
+        self.sample_size = 5 # in number of genes
 
 class LineagePair(object):
     def __init__(self):
