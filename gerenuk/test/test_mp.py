@@ -7,6 +7,7 @@ from gerenuk import simulate
 class TestWorker(simulate.SimulationWorker):
 
     def simulate(self):
+        time.sleep(0.1)
         return {
                 "name": self.name,
                 "task_count": self.num_tasks_received,
@@ -21,7 +22,7 @@ class MpArchitectureTests(unittest.TestCase):
                 "standard_error_logging_level": "warning",
                 "log_to_file": False,
                 }
-        nreps = 10000
+        nreps = 5
         num_processes = 2
         gs = simulate.GerenukSimulator(
                 config_d=config_d,
@@ -33,7 +34,6 @@ class MpArchitectureTests(unittest.TestCase):
         counter = Counter()
         for result_idx, result in enumerate(results):
             counter[result["name"]] += 1
-        # print(counter.keys()) # heisenbug wave-collapse!!
         self.assertEqual(len(counter), num_processes)
 
 if __name__ == "__main__":
