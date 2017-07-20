@@ -251,9 +251,12 @@ class Fsc2Handler(object):
         self.working_directory = working_directory
         self._is_file_system_staged = False
         self._num_executions = 0
+        self._current_execution_id = None
         self._parameter_filepath = None
         self._results_dirpath = None
-        self._current_execution_id = None
+        self._deme0_derived_allele_frequency_filepath = None
+        self._deme1_derived_allele_frequency_filepath = None
+        self._joint_derived_allele_frequency_filepath = None
 
     def stage_filesystem(self):
         if not os.path.exists(self.working_directory):
@@ -276,9 +279,27 @@ class Fsc2Handler(object):
 
     def _get_results_dirpath(self):
         if self._results_dirpath is None:
-            self._results_dirpath = os.path.splitext(self.parameter_filepath)[1]
+            self._results_dirpath = os.path.splitext(self.parameter_filepath)[0]
         return self._results_dirpath
     results_dirpath = property(_get_results_dirpath)
+
+    def _get_result_deme0_derived_allele_frequency_filepath(self):
+        if self._deme0_derived_allele_frequency_filepath is None:
+            self._deme0_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop0.obs")
+        return self._deme0_derived_allele_frequency_filepath
+    deme0_derived_alllele_frequency_filepath = property(_get_result_deme0_derived_allele_frequency_filepath)
+
+    def _get_result_deme1_derived_allele_frequency_filepath(self):
+        if self._deme1_derived_allele_frequency_filepath is None:
+            self._deme1_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop1.obs")
+        return self._deme1_derived_allele_frequency_filepath
+    deme1_derived_alllele_frequency_filepath = property(_get_result_deme1_derived_allele_frequency_filepath)
+
+    def _get_result_joint_derived_allele_frequency_filepath(self):
+        if self._joint_derived_allele_frequency_filepath is None:
+            self._joint_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_jointDAFpop1_0.obs")
+        return self._joint_derived_allele_frequency_filepath
+    joint_derived_alllele_frequency_filepath = property(_get_result_joint_derived_allele_frequency_filepath)
 
     def _generate_parameter_file(self, fsc2_config_d):
         assert self.parameter_filepath
