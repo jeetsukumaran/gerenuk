@@ -50,9 +50,9 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
     def test_deme_derived_allele_frequencies(self):
         fixtures = [
                 {"filename": "test-one_DAFpop0.obs",
-                 "expected_values": (364, 613, 264, 0, 243, 1467, 18, 0, 0, 0, 49, 81, 0, 0, 0, 1293, 0, 0, 0, 0, 0,)},
+                 "expected_values": (929, 110, 238, 101, 0, 216)},
                 {"filename": "test-one_DAFpop1.obs",
-                 "expected_values": (423, 419, 1869, 155, 22, 6, 24, 51, 0, 0, 0, 49, 0, 0, 14, 0, 67, 0, 1293, 0, 0,)},
+                 "expected_values": (39, 1100, 98, 40, 0, 101, 214, 2, 0)},
                 ]
         for fidx, fixture in enumerate(fixtures):
             field_name_prefix = "stats.testv{}".format(fidx+1)

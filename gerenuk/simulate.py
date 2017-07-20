@@ -79,7 +79,7 @@ FSC2_CONFIG_TEMPLATE = """\
 {d1_population_size}
 //Sample sizes
 {d0_sample_size}
-{d0_sample_size}
+{d1_sample_size}
 //Growth rates: negative growth implies population expansion
 0
 0
@@ -165,13 +165,13 @@ def sample_partition(
     return groups
 
 class Deme(object):
-    def __init__(self):
+    def __init__(self, sample_size):
+        self.sample_size = sample_size # in number of genes
         self.population_size = 1000 # in number of genes, i.e. N for haploid or 2N for diploid
-        self.sample_size = 5 # in number of genes
 
 class LineagePair(object):
     def __init__(self):
-        self.demes = (Deme(), Deme())
+        self.demes = (Deme(5), Deme(8))
 
 class GerenukSimulationModel(object):
     pass
