@@ -30,6 +30,7 @@
 ##############################################################################
 
 import subprocess
+import collections
 import random
 import sys
 import os
@@ -317,16 +318,17 @@ class Fsc2Handler(object):
             dest.write(config)
 
     def _parse_deme_derived_allele_frequencies(self, filepath, field_name_prefix):
-        data = {}
+        data = collections.OrderedDict()
         with open(filepath) as src:
             lines = src.read().split("\n")
             assert len(lines) == 4 and lines[3] == ""
-            vidx = 0
-            for val in lines[2].split("\t"):
+            header_row = lines[1].split("\t")
+            data_row = lines[2].split("\t")
+            assert len(header_row) == len(data_row)
+            for key, val in zip(header_row, data_row):
                 if not val:
                     continue
-                vidx += 1
-                data["{}.{}".format(field_name_prefix, vidx+1)] = int(val)
+                data["{}.{}".format(field_name_prefix, key)] = int(val)
         return data
 
     def _post_execution_cleanup(self):
