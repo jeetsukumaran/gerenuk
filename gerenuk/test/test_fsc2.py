@@ -64,6 +64,31 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
             for v1, v2 in zip(expected_values, data.values()):
                 self.assertEqual(v1, v2)
 
+    def test_joint_derived_allele_frequencies(self):
+        fixtures = [
+                {"filename": "test-one_jointDAFpop1_0.obs",
+                 "expected_values": (
+                        0   , 39 , 0   , 0   , 0 , 0   ,
+                        918 , 11 , 171 , 0   , 0 , 0   ,
+                        11  , 60 , 27  , 0   , 0 , 0   ,
+                        0   , 0  , 40  , 0   , 0 , 0   ,
+                        0   , 0  , 0   , 0   , 0 , 0   ,
+                        0   , 0  , 0   , 101 , 0 , 0   ,
+                        0   , 0  , 0   , 0   , 0 , 214 ,
+                        0   , 0  , 0   , 0   , 0 , 2   ,
+                        0   , 0  , 0   , 0   , 0 , 0   ,
+                     )},
+                ]
+        for fidx, fixture in enumerate(fixtures):
+            field_name_prefix = "stats.testv{}".format(fidx+1)
+            data = self.fsc._parse_joint_derived_allele_frequencies(
+                    filepath=os.path.join(TESTS_DATA_DIR, "test-one", fixture["filename"]),
+                    field_name_prefix=field_name_prefix)
+            expected_values = fixture["expected_values"]
+            self.assertEqual(len(expected_values), len(data))
+            for v1, v2 in zip(expected_values, data.values()):
+                self.assertEqual(v1, v2)
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -331,6 +331,21 @@ class Fsc2Handler(object):
                 data["{}.{}".format(field_name_prefix, key)] = int(val)
         return data
 
+    def _parse_joint_derived_allele_frequencies(self, filepath, field_name_prefix):
+        data = collections.OrderedDict()
+        with open(filepath) as src:
+            lines = src.read().split("\n")
+            col_keys = lines[1].split("\t")[1:]
+            for line in lines[2:]:
+                if not line:
+                    continue
+                cols = line.split("\t")
+                assert len(cols) - 1 == len(col_keys)
+                row_key = cols[0]
+                for col_key, val in zip(col_keys, cols[1:]):
+                    data["{}.{}.{}".format(field_name_prefix, row_key, col_key)] = int(val)
+        return data
+
     def _post_execution_cleanup(self):
         pass
 
