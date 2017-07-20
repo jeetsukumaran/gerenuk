@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import os
 import unittest
 import time
 from collections import Counter
@@ -20,6 +21,21 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
     def test_results_dirpath(self):
         self.assertEqual(self.fsc.results_dirpath, "test-data-1")
 
+    def test_deme0_derived_alllele_frequency_filepath(self):
+        self.assertEqual(self.fsc.deme0_derived_alllele_frequency_filepath,
+                os.path.join("test-data-1", "test-data-1_DAFpop0.obs"))
+
+    def test_deme0_derived_alllele_frequency_filepath(self):
+        self.assertEqual(self.fsc.deme0_derived_alllele_frequency_filepath,
+                os.path.join("test-data-1", "test-data-1_DAFpop0.obs"))
+
+    def test_deme1_derived_alllele_frequency_filepath(self):
+        self.assertEqual(self.fsc.deme1_derived_alllele_frequency_filepath,
+                os.path.join("test-data-1", "test-data-1_DAFpop1.obs"))
+
+    def test_joint_derived_alllele_frequency_filepath(self):
+        self.assertEqual(self.fsc.joint_derived_alllele_frequency_filepath,
+                os.path.join("test-data-1", "test-data-1_jointDAFpop1_0.obs"))
 
 if __name__ == "__main__":
     unittest.main()

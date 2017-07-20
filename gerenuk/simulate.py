@@ -285,19 +285,19 @@ class Fsc2Handler(object):
 
     def _get_result_deme0_derived_allele_frequency_filepath(self):
         if self._deme0_derived_allele_frequency_filepath is None:
-            self._deme0_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop0.obs")
+            self._deme0_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop0.obs".format(self.name))
         return self._deme0_derived_allele_frequency_filepath
     deme0_derived_alllele_frequency_filepath = property(_get_result_deme0_derived_allele_frequency_filepath)
 
     def _get_result_deme1_derived_allele_frequency_filepath(self):
         if self._deme1_derived_allele_frequency_filepath is None:
-            self._deme1_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop1.obs")
+            self._deme1_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop1.obs".format(self.name))
         return self._deme1_derived_allele_frequency_filepath
     deme1_derived_alllele_frequency_filepath = property(_get_result_deme1_derived_allele_frequency_filepath)
 
     def _get_result_joint_derived_allele_frequency_filepath(self):
         if self._joint_derived_allele_frequency_filepath is None:
-            self._joint_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_jointDAFpop1_0.obs")
+            self._joint_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_jointDAFpop1_0.obs".format(self.name))
         return self._joint_derived_allele_frequency_filepath
     joint_derived_alllele_frequency_filepath = property(_get_result_joint_derived_allele_frequency_filepath)
 
