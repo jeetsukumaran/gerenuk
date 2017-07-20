@@ -3,7 +3,7 @@
 import os
 import unittest
 import time
-from collections import Counter
+import collections
 from gerenuk import simulate
 from gerenuk.test import TESTS_DATA_DIR
 
@@ -56,9 +56,11 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
                 ]
         for fidx, fixture in enumerate(fixtures):
             field_name_prefix = "stats.testv{}".format(fidx+1)
-            data = self.fsc._parse_deme_derived_allele_frequencies(
+            data = collections.OrderedDict()
+            self.fsc._parse_deme_derived_allele_frequencies(
                     filepath=os.path.join(TESTS_DATA_DIR, "test-one", fixture["filename"]),
-                    field_name_prefix=field_name_prefix)
+                    field_name_prefix=field_name_prefix,
+                    results_d=data)
             expected_values = fixture["expected_values"]
             self.assertEqual(len(expected_values), len(data))
             for v1, v2 in zip(expected_values, data.values()):
@@ -81,9 +83,11 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
                 ]
         for fidx, fixture in enumerate(fixtures):
             field_name_prefix = "stats.testv{}".format(fidx+1)
-            data = self.fsc._parse_joint_derived_allele_frequencies(
+            data = collections.OrderedDict()
+            self.fsc._parse_joint_derived_allele_frequencies(
                     filepath=os.path.join(TESTS_DATA_DIR, "test-one", fixture["filename"]),
-                    field_name_prefix=field_name_prefix)
+                    field_name_prefix=field_name_prefix,
+                    results_d=data)
             expected_values = fixture["expected_values"]
             self.assertEqual(len(expected_values), len(data))
             for v1, v2 in zip(expected_values, data.values()):

@@ -321,22 +321,28 @@ class Fsc2Handler(object):
             config = FSC2_CONFIG_TEMPLATE.format(**fsc2_config_d)
             dest.write(config)
 
-    def _parse_deme_derived_allele_frequencies(self, filepath, field_name_prefix):
-        data = collections.OrderedDict()
+    def _parse_deme_derived_allele_frequencies(self,
+            filepath,
+            field_name_prefix,
+            results_d):
+        # results_d = collections.OrderedDict()
         with open(filepath) as src:
             lines = src.read().split("\n")
             assert len(lines) == 4 and lines[3] == ""
             header_row = lines[1].split("\t")
-            data_row = lines[2].split("\t")
-            assert len(header_row) == len(data_row)
-            for key, val in zip(header_row, data_row):
+            results_d_row = lines[2].split("\t")
+            assert len(header_row) == len(results_d_row)
+            for key, val in zip(header_row, results_d_row):
                 if not val:
                     continue
-                data["{}.{}".format(field_name_prefix, key)] = int(val)
-        return data
+                results_d["{}.{}".format(field_name_prefix, key)] = int(val)
+        return results_d
 
-    def _parse_joint_derived_allele_frequencies(self, filepath, field_name_prefix):
-        data = collections.OrderedDict()
+    def _parse_joint_derived_allele_frequencies(self,
+            filepath,
+            field_name_prefix,
+            results_d):
+        # results_d = collections.OrderedDict()
         with open(filepath) as src:
             lines = src.read().split("\n")
             col_keys = lines[1].split("\t")[1:]
@@ -347,15 +353,16 @@ class Fsc2Handler(object):
                 assert len(cols) - 1 == len(col_keys)
                 row_key = cols[0]
                 for col_key, val in zip(col_keys, cols[1:]):
-                    data["{}.{}.{}".format(field_name_prefix, row_key, col_key)] = int(val)
-        return data
+                    results_d["{}.{}.{}".format(field_name_prefix, row_key, col_key)] = int(val)
+        return results_d
 
     def _post_execution_cleanup(self):
         pass
 
     def run(self,
             fsc2_config_d,
-            random_seed,):
+            random_seed,
+            results_d):
         self._setup_for_execution()
         self._generate_parameter_file(fsc2_config_d)
         cmds = []
@@ -373,6 +380,8 @@ class Fsc2Handler(object):
         stdout, stderr = utility.communicate_process(p)
         if p.returncode != 0:
             raise Fsc2RuntimeError("FastSimCoal2 execution failure: {}".format(stderr))
+        if results_d is None:
+            results_d = collections.OrderedDict()
         self._num_executions += 1
         self._post_execution_cleanup()
 
@@ -466,15 +475,16 @@ class SimulationWorker(multiprocessing.Process):
             self.send_worker_warning("Terminating in response to kill request")
 
     def simulate(self):
-        result = {}
+        results_d = collections.OrderedDict()
         params, fsc2_run_configurations = self.model.sample_parameter_values_from_prior()
-        result.update(params)
+        results_d.update(params)
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
             self.fsc2_handler.run(
                     fsc2_config_d=fsc2_run_configurations[lineage_pair_idx],
                     random_seed=self.model.rng.randint(1, 1E6),
+                    results_d=results_d,
                     )
-        return result
+        return results_d
 
 class GerenukSimulator(object):
 
