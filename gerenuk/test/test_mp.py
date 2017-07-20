@@ -7,7 +7,7 @@ from gerenuk import simulate
 class TestWorker(simulate.SimulationWorker):
 
     def simulate(self):
-        time.sleep(0.1)
+        time.sleep(0.2)
         return {
                 "name": self.name,
                 "task_count": self.num_tasks_received,
@@ -22,7 +22,7 @@ class MpArchitectureTests(unittest.TestCase):
                 "standard_error_logging_level": "warning",
                 "log_to_file": False,
                 }
-        nreps = 5
+        nreps = 10
         num_processes = 2
         gs = simulate.GerenukSimulator(
                 config_d=config_d,

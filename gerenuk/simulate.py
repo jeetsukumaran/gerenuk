@@ -258,11 +258,6 @@ class Fsc2Handler(object):
         self._deme1_derived_allele_frequency_filepath = None
         self._joint_derived_allele_frequency_filepath = None
 
-    def stage_filesystem(self):
-        if not os.path.exists(self.working_directory):
-            os.makedirs(self.working_directory)
-        self._is_file_system_staged = True
-
     def _get_current_execution_id(self):
         if self._current_execution_id is None:
             self._current_execution_id = "".join([self.name, "-{:06d}".format(self._num_executions),
@@ -301,12 +296,6 @@ class Fsc2Handler(object):
         return self._joint_derived_allele_frequency_filepath
     joint_derived_allele_frequency_filepath = property(_get_result_joint_derived_allele_frequency_filepath)
 
-    def _generate_parameter_file(self, fsc2_config_d):
-        assert self.parameter_filepath
-        with open(os.path.join(self.working_directory, self.parameter_filepath), "w") as dest:
-            config = FSC2_CONFIG_TEMPLATE.format(**fsc2_config_d)
-            dest.write(config)
-
     def _new_execution_reset(self):
         self._current_execution_id = None
         self._parameter_filepath = None
@@ -314,7 +303,31 @@ class Fsc2Handler(object):
     def _setup_for_execution(self):
         self._new_execution_reset()
         if not self._is_file_system_staged:
-            self.stage_filesystem()
+            self._stage_filesystem()
+
+    def _stage_filesystem(self):
+        if not os.path.exists(self.working_directory):
+            os.makedirs(self.working_directory)
+        self._is_file_system_staged = True
+
+    def _generate_parameter_file(self, fsc2_config_d):
+        assert self.parameter_filepath
+        with open(os.path.join(self.working_directory, self.parameter_filepath), "w") as dest:
+            config = FSC2_CONFIG_TEMPLATE.format(**fsc2_config_d)
+            dest.write(config)
+
+    def _parse_deme_derived_allele_frequencies(self, filepath, field_name_prefix):
+        data = {}
+        with open(filepath) as src:
+            lines = src.read().split("\n")
+            assert len(lines) == 4 and lines[3] == ""
+            vidx = 0
+            for val in lines[2].split("\t"):
+                if not val:
+                    continue
+                vidx += 1
+                data["{}.{}".format(field_name_prefix, vidx+1)] = int(val)
+        return data
 
     def _post_execution_cleanup(self):
         pass
@@ -534,7 +547,8 @@ class GerenukSimulator(object):
         workers = []
         for pidx in range(self.num_processes):
             worker = self.worker_class(
-                    name=str(pidx+1),
+                    # name=str(pidx+1),
+                    name="{}-{}".format(self.title, pidx+1),
                     model=self.model,
                     work_queue=work_queue,
                     results_queue=results_queue,
