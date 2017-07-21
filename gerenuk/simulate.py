@@ -164,6 +164,12 @@ def sample_partition(
             groups[selected_idx-1].append(element_id)
     return groups
 
+def compose_lineage_pair_label(lineage_pair_idx):
+    return "spp{}".format(lineage_pair_idx)
+
+def compose_deme_label(deme_idx):
+    return "deme{}".format(deme_idx)
+
 class Deme(object):
     def __init__(self, sample_size):
         self.sample_size = sample_size # in number of genes
@@ -216,13 +222,14 @@ class GerenukSimulationModel(object):
                 assert lineage_pair_idx in expected_lineage_pair_idxs
                 assert lineage_pair_idx not in fsc2_run_configurations
                 fsc2_config_d = {}
-
+                lineage_pair_label = compose_lineage_pair_label(lineage_pair_idx)
                 for deme_idx in range(2):
+                    deme_label = compose_deme_label(deme_idx)
                     # effective population sizes in genes, of each lineage deme
                     # TODO: actually sample from prior instead of assigning!
                     deme_param_ne = self.lineage_pairs[lineage_pair_idx].demes[deme_idx].population_size
                     fsc2_config_d["d{}_population_size".format(deme_idx)] = deme_param_ne
-                    params["param.populationSize.spp{}.deme{}".format(lineage_pair_idx, deme_idx)] = deme_param_ne
+                    params["param.populationSize.{}.{}".format(lineage_pair_label, deme_label)] = deme_param_ne
 
                     # num genes sampled, of each lineage deme
                     fsc2_config_d["d{}_sample_size".format(deme_idx)] = self.lineage_pairs[lineage_pair_idx].demes[deme_idx].sample_size
@@ -234,12 +241,8 @@ class GerenukSimulationModel(object):
 
                 # divergence time
                 fsc2_config_d["div_time"] = div_time_values[group_id]
-                params["param.divTime.spp{}".format(lineage_pair_idx)] = div_time_values[group_id]
-
+                params["param.divTime.{}".format(lineage_pair_label)] = div_time_values[group_id]
                 fsc2_run_configurations[lineage_pair_idx] = fsc2_config_d
-        # code the model as 1100112
-        # vector of div times
-        # for each population pair --- other
 
         params["param.divModel"] = "".join(div_time_model_desc)
         return params, fsc2_run_configurations
@@ -356,13 +359,17 @@ class Fsc2Handler(object):
                     results_d["{}.{}.{}".format(field_name_prefix, row_key, col_key)] = int(val)
         return results_d
 
+    def _harvest_run_results(self, field_name_prefix, results_d):
+        pass
+
     def _post_execution_cleanup(self):
         pass
 
     def run(self,
+            field_name_prefix,
             fsc2_config_d,
             random_seed,
-            results_d):
+            results_d,):
         self._setup_for_execution()
         self._generate_parameter_file(fsc2_config_d)
         cmds = []
@@ -380,9 +387,12 @@ class Fsc2Handler(object):
         stdout, stderr = utility.communicate_process(p)
         if p.returncode != 0:
             raise Fsc2RuntimeError("FastSimCoal2 execution failure: {}".format(stderr))
+        self._num_executions += 1
         if results_d is None:
             results_d = collections.OrderedDict()
-        self._num_executions += 1
+        self._harvest_run_results(
+                field_name_prefix=field_name_prefix,
+                results_d=results_d)
         self._post_execution_cleanup()
 
 class SimulationWorker(multiprocessing.Process):
@@ -480,6 +490,7 @@ class SimulationWorker(multiprocessing.Process):
         results_d.update(params)
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
             self.fsc2_handler.run(
+                    field_name_prefix="stats.{}".format(compose_lineage_pair_label(lineage_pair_idx)),
                     fsc2_config_d=fsc2_run_configurations[lineage_pair_idx],
                     random_seed=self.model.rng.randint(1, 1E6),
                     results_d=results_d,
