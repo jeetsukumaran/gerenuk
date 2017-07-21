@@ -282,7 +282,7 @@ class Fsc2Handler(object):
 
     def _get_results_dirpath(self):
         if self._results_dirpath is None:
-            self._results_dirpath = os.path.splitext(self.parameter_filepath)[0]
+            self._results_dirpath = os.path.join(self.working_directory, os.path.splitext(self.parameter_filepath)[0])
         return self._results_dirpath
     results_dirpath = property(_get_results_dirpath)
 
@@ -360,7 +360,19 @@ class Fsc2Handler(object):
         return results_d
 
     def _harvest_run_results(self, field_name_prefix, results_d):
-        pass
+        self._parse_deme_derived_allele_frequencies(
+                filepath=self.deme0_derived_allele_frequency_filepath,
+                field_name_prefix="{}.{}.dfs".format(field_name_prefix, compose_deme_label(0)),
+                results_d=results_d)
+        self._parse_deme_derived_allele_frequencies(
+                filepath=self.deme1_derived_allele_frequency_filepath,
+                field_name_prefix="{}.{}.dfs".format(field_name_prefix, compose_deme_label(1)),
+                results_d=results_d)
+        self._parse_joint_derived_allele_frequencies(
+                filepath=self.joint_derived_allele_frequency_filepath,
+                field_name_prefix="{}.joint.dfs".format(field_name_prefix),
+                results_d=results_d)
+        return results_d
 
     def _post_execution_cleanup(self):
         pass
@@ -490,7 +502,7 @@ class SimulationWorker(multiprocessing.Process):
         results_d.update(params)
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
             self.fsc2_handler.run(
-                    field_name_prefix="stats.{}".format(compose_lineage_pair_label(lineage_pair_idx)),
+                    field_name_prefix="stat.{}".format(compose_lineage_pair_label(lineage_pair_idx)),
                     fsc2_config_d=fsc2_run_configurations[lineage_pair_idx],
                     random_seed=self.model.rng.randint(1, 1E6),
                     results_d=results_d,

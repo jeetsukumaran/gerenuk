@@ -20,23 +20,24 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
         self.assertEqual(self.fsc.parameter_filepath, "test-one.par")
 
     def test_results_dirpath(self):
-        self.assertEqual(self.fsc.results_dirpath, "test-one")
+        self.assertEqual(self.fsc.results_dirpath,
+                os.path.join(TESTS_DATA_DIR, "test-one"))
 
     def test_deme0_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.deme0_derived_allele_frequency_filepath,
-                os.path.join("test-one", "test-one_DAFpop0.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_DAFpop0.obs"))
 
     def test_deme0_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.deme0_derived_allele_frequency_filepath,
-                os.path.join("test-one", "test-one_DAFpop0.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_DAFpop0.obs"))
 
     def test_deme1_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.deme1_derived_allele_frequency_filepath,
-                os.path.join("test-one", "test-one_DAFpop1.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_DAFpop1.obs"))
 
     def test_joint_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.joint_derived_allele_frequency_filepath,
-                os.path.join("test-one", "test-one_jointDAFpop1_0.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_jointDAFpop1_0.obs"))
 
 class Fsc2DataExtractionTestCase(unittest.TestCase):
 
