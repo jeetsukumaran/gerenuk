@@ -29,6 +29,7 @@
 ##
 ##############################################################################
 
+import csv
 import locale
 import codecs
 import sys
@@ -81,6 +82,33 @@ def communicate_process(p, commands=None, timeout=None):
     if stderr is not None:
         stderr = bytes_to_text(stderr)
     return stdout, stderr
+
+def open_output_file_for_csv_writer(filepath, is_append=False):
+    if filepath is None or filepath == "-":
+        out = sys.stdout
+    elif sys.version_info >= (3,0,0):
+        out = open(filepath, "a" if is_append else "w", newline='')
+    else:
+        out = open(filepath, "ab" if is_append else "wb")
+    return out
+
+def write_dict_csv(list_of_dicts, filepath, fieldnames=None, is_no_header_row=False, is_append=False):
+    out = open_output_file_for_csv_writer(
+            filepath=filepath,
+            is_append=is_append)
+    if fieldnames is None:
+        fieldnames = list_of_dicts[0].keys()
+    with out:
+        writer = csv.DictWriter(
+                out,
+                fieldnames=fieldnames,
+                restval="NA",
+                delimiter=",",
+                lineterminator=os.linesep,
+                )
+        if not is_no_header_row:
+            writer.writeheader()
+        writer.writerows(list_of_dicts)
 
 ##############################################################################
 ## Logging

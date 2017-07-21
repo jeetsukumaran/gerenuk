@@ -651,4 +651,6 @@ if __name__ == "__main__":
         results = gs.execute(5)
     except Exception as e:
         sys.exit(1)
-    print(results)
+    utility.write_dict_csv(
+            list_of_dicts=results,
+            filepath="-")
