@@ -451,15 +451,27 @@ class GerenukSimulationModel(object):
                 params["param.theta.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_theta
 
                 for locus_id, locus_definition in enumerate(lineage_pair.locus_definitions):
+                    # Fastsimecoal2 separates pop size and mutation rate, but
+                    # the msBayes/PyMsBayes model does not separate the two,
+                    # using theta. We could simply scale everything by
+                    # mutation rate -- i.e., population size and div time
+                    # specified in units of N * mu, and in the sequence
+                    # generation assume a base mutation rate of 1.0. Problem
+                    # is that Fastsimcoal reads the population size as an
+                    # integer, and so anything less than 1 becomes zero. So
+                    # we multiply the population size AND divergence time by
+                    # a large number and adjust this in the actual mutation
+                    # rate.
+                    adjustment_hack = 1E8
                     fsc2_config_d = {
-                        "d0_population_size": deme0_theta/4.0 * locus_definition.ploidy_factor * 1E8, # the * 1E8 is because Fastsimcoal coerces this to an integer, and we do not so much have Ne as much as Ne * mu
-                        "d1_population_size": deme1_theta/4.0 * locus_definition.ploidy_factor * 1E8, # we adjust it in the mutation rate below
+                        "d0_population_size": deme0_theta/4.0 * locus_definition.ploidy_factor * adjustment_hack,
+                        "d1_population_size": deme1_theta/4.0 * locus_definition.ploidy_factor * adjustment_hack,
                         "d0_sample_size": locus_definition.num_genes_deme0,
                         "d1_sample_size": locus_definition.num_genes_deme1,
-                        "div_time": div_time,
+                        "div_time": div_time * adjustment_hack, # ditto
                         "num_sites": locus_definition.num_sites,
                         "recombination_rate": 0,
-                        "mutation_rate": locus_definition.mutation_rate_factor * 1E-8,
+                        "mutation_rate": locus_definition.mutation_rate_factor / adjustment_hack,
                         "ti_proportional_bias": (1.0 * locus_definition.ti_tv_rate_ratio)/3.0,
                         }
                     fsc2_run_configurations[locus_definition] = fsc2_config_d
