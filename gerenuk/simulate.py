@@ -455,16 +455,29 @@ class GerenukSimulationModel(object):
                 for locus_id, locus_definition in enumerate(lineage_pair.locus_definitions):
                     # Fastsimecoal2 separates pop size and mutation rate, but
                     # the msBayes/PyMsBayes model does not separate the two,
-                    # using theta. We could simply scale everything by
-                    # mutation rate -- i.e., population size and div time
-                    # specified in units of N * mu, and in the sequence
-                    # generation assume a base mutation rate of 1.0. Problem
-                    # is that Fastsimcoal reads the population size as an
-                    # integer, and so anything less than 1 becomes zero. So
-                    # we multiply the population size AND divergence time by
-                    # a large number and adjust this in the actual mutation
-                    # rate.
+                    # using theta.
+                    #
+                    # We could just reparameterize the PyMsBayes model here,
+                    # sampling over N and mu independently. But say we want to
+                    # stick to the theta parameterization.
+                    #
+                    # We could simply scale everything by mutation rate --
+                    # i.e., population size and div time specified in units of
+                    # N * mu, and in the sequence generation assume a base
+                    # mutation rate of 1.0. Problem with this is that
+                    # Fastsimcoal coerces the population size to an integer,
+                    # and so anything less than 1 becomes zero. So we multiply
+                    # the population size time by a large number and adjust
+                    # this in the actual mutation rate so N mu remains the
+                    # same:
+                    #
+                    #   theta = 4 N mu = 4 * (N * C) * (mu/C)
+                    #
+                    # Of course, VERY important to also apply the adjustment
+                    # factor to the divergence time, or, indeed, any other time
+                    # variable!
                     adjustment_hack = 1E8
+                    #
                     fsc2_config_d = {
                         "d0_population_size": deme0_theta/4.0 * locus_definition.ploidy_factor * adjustment_hack,
                         "d1_population_size": deme1_theta/4.0 * locus_definition.ploidy_factor * adjustment_hack,
