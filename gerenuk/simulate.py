@@ -947,7 +947,7 @@ if __name__ == "__main__":
             num_processes=3,
             is_verbose_setup=True)
     try:
-        results = gs.execute(15)
+        results = gs.execute(5)
     except Exception as e:
         sys.exit(1)
     utility.write_dict_csv(
