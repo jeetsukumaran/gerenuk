@@ -170,23 +170,15 @@ def compose_lineage_pair_label(lineage_pair_idx):
 def compose_deme_label(deme_idx):
     return "deme{}".format(deme_idx)
 
-class LocusSample(object):
-    def __init__(self,
-            label,
-            ploidy_or_generation_factor,
-            mutation_rate_scale_factor,
-            num_genes_deme0,
-            num_genes_deme1,
-            ti_tv_ratio,
-            seq_length,
-            base_freq_a,
-            base_freq_c,
-            base_freq_g,
-            ):
+class LocusDefinition(object):
 
+    def __init__(self, locus_d):
+        self.configure(locus_d)
+
+    def configure(self, locus_d):
+        # Doc/comments for parameters from, and following, PyMsBayes (Jamie Oaks; https://github.com/joaks1/PyMsBayes)
         # label for this locus
-        self.label = label
-
+        self.label = locus_d.pop("locus_label")
         # The number in this column is used to scale for differences in ploidy among loci
         # or for differences in generation-times among taxa. In our example configuration
         # file 1.0 is used for loci from a diploid nuclear genome, whereas 0.25 is used
@@ -194,45 +186,47 @@ class LocusSample(object):
         # inherited). However, if a taxon "species-3" had 1/4 the generation times of
         # the other two taxa, we would specify "1.0" for the third column for its
         # mitochondrial locus, and "4.0" for the third column for its nuclear loci.
-        self.ploidy_or_generation_factor = ploidy_or_generation_factor
-
+        self.ploidy_factor = float(locus_d.pop("ploidy_factor"))
         # The number in this column is used to scale for differences in mutation rates
         # among taxa and/or loci. In our example configuration file, we are assuming that
         # the mitochondrial locus ("mito-1") is evolving four-times faster than the other
         # loci (hence, the "4.0" in this fourth column for the three rows representing
         # the mitochondrial locus).
-        self.mutation_rate_scale_factor = mutation_rate_scale_factor
-
+        self.mutation_rate_factor = float(locus_d.pop("mutation_rate_factor"))
         # Number of genes/sequences/taxa from first population
-        self.num_genes_deme0 = num_genes_deme0
-
+        self.num_genes_deme0 = int(locus_d.pop("num_genes_deme0"))
         # Number of genes/sequences/taxa from second population
-        self.num_genes_deme1 = num_genes_deme1
-
+        self.num_genes_deme1 = int(locus_d.pop("num_genes_deme1"))
         # This is the transition/transversion rate ratio ("Kappa") of the HKY85
         # model of nucleotide substitution [4] for this alignment. NOTE: This is
         # the transition/transversion rate ratio, not the "count" ratio. I.e.,
         # Kappa = 1 is equal to the Jukes-Cantor model.
-        self.ti_tv_ratio = ti_tv_ratio
-
+        self.ti_tv_ratio = float(locus_d.pop("ti_tv_ratio"))
         # Number of sites
-        self.seq_length = seq_length
-
+        self.num_sites = int(locus_d.pop("num_sites"))
         # Equilibrium frequency of nucleotide
-        self.base_freq_a = base_freq_a
-
+        self.freq_a = float(locus_d.pop("freq_a"))
         # Equilibrium frequency of nucleotide
-        self.base_freq_c = base_freq_c
-
+        self.freq_c = float(locus_d.pop("freq_c"))
         # Equilibrium frequency of nucleotide
-        self.base_freq_g = base_freq_g
+        self.freq_g = float(locus_d.pop("freq_g"))
+        # Path to alignment file (optional)
+        self.alignment_filepath = locus_d.pop("alignment_filepath", None)
+        # Done!
+        if locus_d:
+            raise Exception("Unrecognized locus definition entries: {}".format(locus_d))
 
 class LineagePair(object):
-    def __init__(self):
-        pass
+
+    def __init__(self, taxon_label):
+        self.taxon_label = taxon_label
+        self.locus_definitions = []
+
+    def add_locus_definition(self, locus_d):
+        locus = LocusDefinition(locus_d)
+        self.locus_definitions.append(locus)
 
 class GerenukSimulationModel(object):
-    pass
 
     def __init__(self,
             rng,
@@ -240,18 +234,25 @@ class GerenukSimulationModel(object):
             locus_info,
             ):
         self.rng = rng
-        # self.num_lineage_pairs = 2
-        # self.lineage_pairs = tuple(LineagePair() for i in range(self.num_lineage_pairs))
         self.configure_loci(locus_info)
         self.configure_params(params_d)
 
     def configure_loci(self, locus_info):
-        taxon_labels = set()
+        self.label_to_lineage_pair_map = {}
+        self.lineage_pairs = []
         for locus_d in locus_info:
-            taxon_labels.add( locus_d.pop("taxon_label") )
-        self.num_lineage_pairs = len(taxon_labels)
+            taxon_label = locus_d.pop("taxon_label")
+            try:
+                lineage_pair = self.label_to_lineage_pair_map[taxon_label]
+            except KeyError:
+                lineage_pair = LineagePair(
+                        taxon_label=taxon_label)
+                self.label_to_lineage_pair_map[taxon_label] = lineage_pair
+                self.lineage_pairs.append(lineage_pair)
+            lineage_pair.add_locus_definition(locus_d)
 
     def configure_params(self, params_d):
+        # Doc/comments for parameters from, and following, PyMsBayes (Jamie Oaks; https://github.com/joaks1/PyMsBayes)
         params_d = utility.CaseInsensitiveDict(params_d)
         # shape and scale of Gamma hyperprior on
         # concentration parameter of Dirichlet process to partition pairs
@@ -327,6 +328,13 @@ class GerenukSimulationModel(object):
         # simulation-based power analyses, but should not be used for empirical
         # analyses.
         self.num_tau_classes = int(params_d.pop("numTauClasses"))
+        # Done!
+        if params_d:
+            raise Exception("Unrecognized parameter configuration entries: {}".format(params_d))
+
+    def _get_num_lineage_pairs(self):
+        return len(self.lineage_pairs)
+    num_lineage_pairs = property(_get_num_lineage_pairs)
 
     def sample_parameter_values_from_prior(self):
         params = {}
@@ -796,12 +804,38 @@ if __name__ == "__main__":
                 "numTauClasses": 0
                 },
             "locus_info": [
-                {'taxon_label': 'S1', 'locus_label': 'LocusS1M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 38, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.263, 'freq_c': 0.258, 'freq_t': 0.255, 'alignment_filepath': 'S1M1.fasta', },
-                {'taxon_label': 'S1', 'locus_label': 'LocusS1M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 36, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.149, 'freq_c': 0.146, 'freq_t': 0.226, 'alignment_filepath': 'S1M2.fasta', },
-                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_t': 0.188, 'alignment_filepath': 'S1M3.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_t': 0.236, 'alignment_filepath': 'S2M1.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_t': 0.175, 'alignment_filepath': 'S2M2.fasta', },
-                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_t': 0.264, 'alignment_filepath': 'S3M1.fasta', }
+                {'taxon_label': 'S1',
+                        'locus_label': 'LocusS1M1',
+                        'ploidy_factor': 1,
+                        'mutation_rate_factor': 1,
+                        'num_genes_deme0': 38,
+                        'num_genes_deme1': 38,
+                        'ti_tv_ratio': 3,
+                        'num_sites': 80,
+                        'freq_a': 0.263,
+                        'freq_c': 0.258,
+                        'freq_g': 0.255,
+                        'alignment_filepath': 'S1M1.fasta',
+                        },
+
+                {'taxon_label': 'S1',
+                        'locus_label': 'LocusS1M2',
+                        'ploidy_factor': 1,
+                        'mutation_rate_factor': 1,
+                        'num_genes_deme0': 38,
+                        'num_genes_deme1': 36,
+                        'ti_tv_ratio': 3,
+                        'num_sites': 80,
+                        'freq_a': 0.149,
+                        'freq_c': 0.146,
+                        'freq_g': 0.226,
+                        'alignment_filepath': 'S1M2.fasta',
+                        },
+
+                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_g': 0.188, 'alignment_filepath': 'S1M3.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_g': 0.175, 'alignment_filepath': 'S2M2.fasta', },
+                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', }
                 ],
             }
     gs = GerenukSimulator(
