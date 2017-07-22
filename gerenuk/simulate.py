@@ -239,7 +239,7 @@ class GerenukSimulationModel(object):
 
     def configure_loci(self, locus_info):
         self.label_to_lineage_pair_map = {}
-        self.lineage_pairs = []
+        self.lineage_pairs = [] # list to maintain order for indexing during Dirichlet process partitioning
         for locus_d in locus_info:
             taxon_label = locus_d.pop("taxon_label")
             try:
@@ -338,6 +338,8 @@ class GerenukSimulationModel(object):
 
     def sample_parameter_values_from_prior(self):
         params = {}
+
+        ## div time
         concentration_v = self.rng.gammavariate(*self.prior_concentration)
         params["param.concentration"] = concentration_v
         groups = sample_partition(
@@ -349,34 +351,33 @@ class GerenukSimulationModel(object):
         div_time_values = [self.rng.gammavariate(*self.prior_tau) for i in groups]
         fsc2_run_configurations = [None for i in range(self.num_lineage_pairs)]
         div_time_model_desc = [None for i in range(self.num_lineage_pairs)]
+
+        # thetas
+        theta = self.rng.gammavariate(*self.prior_theta)
+
         expected_lineage_pair_idxs = set([i for i in range(self.num_lineage_pairs)])
         for group_id, group in enumerate(groups):
             for lineage_pair_idx in group:
                 assert lineage_pair_idx in expected_lineage_pair_idxs
                 assert lineage_pair_idx not in fsc2_run_configurations
-                fsc2_config_d = {}
-                lineage_pair_label = compose_lineage_pair_label(lineage_pair_idx)
-                for deme_idx in range(2):
-                    deme_label = compose_deme_label(deme_idx)
-                    # effective population sizes in genes, of each lineage deme
-                    # TODO: actually sample from prior instead of assigning!
-                    deme_param_ne = self.lineage_pairs[lineage_pair_idx].demes[deme_idx].population_size
-                    fsc2_config_d["d{}_population_size".format(deme_idx)] = deme_param_ne
-                    params["param.populationSize.{}.{}".format(lineage_pair_label, deme_label)] = deme_param_ne
-
-                    # num genes sampled, of each lineage deme
-                    fsc2_config_d["d{}_sample_size".format(deme_idx)] = self.lineage_pairs[lineage_pair_idx].demes[deme_idx].sample_size
-
-                    # TODO: specify data structure
-
-                # divergence time model description
-                div_time_model_desc[lineage_pair_idx] = str(group_id+1)
-
-                # divergence time
-                fsc2_config_d["div_time"] = div_time_values[group_id]
-                params["param.divTime.{}".format(lineage_pair_label)] = div_time_values[group_id]
-                fsc2_run_configurations[lineage_pair_idx] = fsc2_config_d
-
+                lineage_pair = self.lineage_pairs[lineage_pair_idx]
+                div_time_model_desc[lineage_pair_idx] = str(group_id+1) # divergence time model description
+                div_time = div_time_values[group_id]
+                params["param.divTime.{}".format(lineage_pair_label)] = div_time
+                for locus_id, locus_definition in enumerate(lineage_pair.locus_definitions):
+                    fsc2_config_d = {}
+                    for deme_idx in range(2):
+                        deme_label = compose_deme_label(deme_idx)
+                        # effective population sizes in genes, of each lineage deme
+                        deme_param_ne = lineage_pair.demes[deme_idx].population_size
+                        fsc2_config_d["d{}_population_size".format(deme_idx)] = deme_param_ne
+                        params["param.populationSize.{}.{}".format(lineage_pair_label, deme_label)] = deme_param_ne
+                        # num genes sampled, of each lineage deme
+                        fsc2_config_d["d{}_sample_size".format(deme_idx)] = self.lineage_pairs[lineage_pair_idx].demes[deme_idx].sample_size
+                        # TODO: specify data structure
+                        # divergence time
+                        fsc2_config_d["div_time"] =  div_time
+                        fsc2_run_configurations[lineage_pair_idx] = fsc2_config_d
         params["param.divModel"] = "".join(div_time_model_desc)
         return params, fsc2_run_configurations
 
@@ -668,14 +669,13 @@ class GerenukSimulator(object):
             self.num_processes = num_processes
         if self.is_verbose_setup:
             self.run_logger.info("Will run up to {} processes in parallel".format(self.num_processes))
-            self.run_logger.info("{} pairs of demes in analysis:".format(self.model.num_lineage_pairs))
+            self.run_logger.info("{} lineage pairs in analysis:".format(self.model.num_lineage_pairs))
             for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
-                self.run_logger.info("    {:>3d}. {} / {}".format(
-                        lineage_pair_idx+1,
-                        lineage_pair.demes[0].sample_size,
-                        lineage_pair.demes[1].sample_size,
+                self.run_logger.info("  - '{}': {:>2d} loci (Samples: {})".format(
+                        lineage_pair.taxon_label,
+                        len(lineage_pair.locus_definitions),
+                        ", ".join("{}/{}".format(locus.num_genes_deme0, locus.num_genes_deme1) for locus in lineage_pair.locus_definitions),
                         ))
-
         self.worker_class = SimulationWorker
 
     def configure_simulator(self, config_d, verbose=True):
