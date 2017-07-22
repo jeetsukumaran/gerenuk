@@ -88,12 +88,12 @@ FSC2_CONFIG_TEMPLATE = """\
 //historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event
 1  historical event
 {div_time} 0 1 1 2 0 0
-//Number of independent loci [chromosome]
+//Number of independent loci [chromosome]; "0" => same structure for all loci
 1 0
 //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
 1
-//per Block:data type, number of loci, per generation recombination and mutation rates and optional parameters
-DNA 10 0.00000 0.02 0.33
+//per Block:data type, number of loci, per generation recombination rate, per generation mutation rate and optional parameters
+DNA {num_sites} {recombination_rate} {mut_rate} {ti_proportional_bias}
 """
 
 def weighted_choice(seq, weights, rng):
@@ -169,6 +169,9 @@ def compose_lineage_pair_label(lineage_pair_idx):
 
 def compose_deme_label(deme_idx):
     return "deme{}".format(deme_idx)
+_DEME0_LABEL = compose_deme_label(0)
+_DEME1_LABEL = compose_deme_label(1)
+_ANCESTOR_DEME_LABEL = compose_deme_label("A")
 
 class LocusDefinition(object):
 
@@ -188,10 +191,7 @@ class LocusDefinition(object):
         # mitochondrial locus, and "4.0" for the third column for its nuclear loci.
         self.ploidy_factor = float(locus_d.pop("ploidy_factor"))
         # The number in this column is used to scale for differences in mutation rates
-        # among taxa and/or loci. In our example configuration file, we are assuming that
-        # the mitochondrial locus ("mito-1") is evolving four-times faster than the other
-        # loci (hence, the "4.0" in this fourth column for the three rows representing
-        # the mitochondrial locus).
+        # among taxa and/or loci.
         self.mutation_rate_factor = float(locus_d.pop("mutation_rate_factor"))
         # Number of genes/sequences/taxa from first population
         self.num_genes_deme0 = int(locus_d.pop("num_genes_deme0"))
@@ -201,7 +201,7 @@ class LocusDefinition(object):
         # model of nucleotide substitution [4] for this alignment. NOTE: This is
         # the transition/transversion rate ratio, not the "count" ratio. I.e.,
         # Kappa = 1 is equal to the Jukes-Cantor model.
-        self.ti_tv_ratio = float(locus_d.pop("ti_tv_ratio"))
+        self.ti_tv_rate_ratio = float(locus_d.pop("ti_tv_rate_ratio"))
         # Number of sites
         self.num_sites = int(locus_d.pop("num_sites"))
         # Equilibrium frequency of nucleotide
@@ -254,33 +254,57 @@ class GerenukSimulationModel(object):
     def configure_params(self, params_d):
         # Doc/comments for parameters from, and following, PyMsBayes (Jamie Oaks; https://github.com/joaks1/PyMsBayes)
         params_d = utility.CaseInsensitiveDict(params_d)
-        # shape and scale of Gamma hyperprior on
+        # Shape and scale of Gamma hyperprior on
         # concentration parameter of Dirichlet process to partition pairs
         self.prior_concentration = (
                 float(params_d.pop("concentrationShape")),
                 float(params_d.pop("concentrationScale"))
                 )
-        # shape and scale of Gamma hyperprior on
-        # theta (population) parameters for daughter deme
+
+        # # Shape and scale of Gamma hyperprior on theta PyMsBayes does not
+        # # independently model N and \mu, but FastsimCoal2 does.
         self.prior_theta = (
                 float(params_d.pop("thetaShape")),
                 float(params_d.pop("thetaScale"))
                 )
-        # shape and scale of Gamma hyperprior on
+
+        # Shape and scale of Gamma hyperprior on population size.
+        # PyMsBayes does not independently model N and \mu. Here we do.
+        # BEAST* uses a gamma distribution with a mean 2\psi
+        # and a shape of 2, with user specifying a (hyper-)prior on \psi.
+        # Here, for now, we just use Gamma directly, with default shape
+        # parameter of 2.
+        # self.prior_popsize = (
+        #         float(params_d.pop("popsizeShape", 2))
+        #         float(params_d.pop("popsizeScale"))
+        #         )
+        # # Shape and scale of Gamma hyperprior on mutation rate.
+        # # PyMsBayes does not independently model N and \mu. Here we do.
+        # self.prior_mutRate = (
+        #         float(params_d.pop("mutRateShape"))
+        #         float(params_d.pop("mutRateScale"))
+        #         )
+
+        # Shape and scale of Gamma hyperprior on
         # theta (population) parameters for ancestral deme
         self.prior_ancestral_theta = (
                 float(params_d.pop("ancestralThetaShape")),
                 float(params_d.pop("ancestralThetaScale"))
                 )
         # specification of fixed/free parameters
-        self.theta_constraints = params_d.pop("thetaParameters")
-        # shape and scale of Gamma hyperprior on
+        self.theta_constraints = str(params_d.pop("thetaParameters", "000"))
+        if len(self.theta_constraints) != 3:
+            raise ValueError("Incorrectly specified 'thetaParameters' constraints: '{}'".format(self.theta_constraints))
+        for idx, i in enumerate(self.theta_constraints):
+            if i not in ["0", "1", "2"]:
+                raise ValueError("Incorrectly specified 'thetaParameters' constraints: '{}'".format(self.theta_constraints))
+        # Shape and scale of Gamma hyperprior on
         # divergence times
         self.prior_tau = (
                 float(params_d.pop("tauShape")),
                 float(params_d.pop("tauScale"))
                 )
-        # shape and scale of Gamma hyperprior on
+        # Shape and scale of Gamma hyperprior on
         # divergence times
         self.prior_migration = (
                 float(params_d.pop("migrationShape")),
@@ -349,7 +373,7 @@ class GerenukSimulationModel(object):
                 )
         params["param.numDivTimes"] = len(groups)
         div_time_values = [self.rng.gammavariate(*self.prior_tau) for i in groups]
-        fsc2_run_configurations = [None for i in range(self.num_lineage_pairs)]
+        fsc2_run_configurations = collections.OrderedDict()
         div_time_model_desc = [None for i in range(self.num_lineage_pairs)]
 
         # thetas
@@ -361,23 +385,84 @@ class GerenukSimulationModel(object):
                 assert lineage_pair_idx in expected_lineage_pair_idxs
                 assert lineage_pair_idx not in fsc2_run_configurations
                 lineage_pair = self.lineage_pairs[lineage_pair_idx]
+                ## divergence time
                 div_time_model_desc[lineage_pair_idx] = str(group_id+1) # divergence time model description
                 div_time = div_time_values[group_id]
-                params["param.divTime.{}".format(lineage_pair_label)] = div_time
+                params["param.divTime.{}".format(lineage_pair.taxon_label)] = div_time
+
+                ## population parameters --- separate N and mu parameterization
+                ## -- deme 0
+                # deme0_pop_size = self.rng.gammavariate(*self.prior_popsize)
+                # deme0_mu = self.rng.gammavariate(*self.prior_mutRate)
+                # deme0_theta = 4 * deme0_pop_size * deme_0_mu
+                # params["param.popSize.{}.{}".format(lineage_pair.taxon_label, _DEME0_LABEL)] = deme0_pop_size
+                # params["param.mutRate.{}.{}".format(lineage_pair.taxon_label, _DEME0_LABEL)] = deme0_mu
+                # params["param.theta.{}.{}".format(lineage_pair.taxon_label, _DEME0_LABEL)] = deme0_theta
+                # ## -- deme 1
+                # if self.theta_constraints[1] == self.theta_constraints[0]:
+                #     deme1_pop_size = deme0_pop_size
+                #     deme1_mu = deme0_mu
+                #     deme1_theta = deme0_theta
+                # else:
+                #     deme1_pop_size = self.rng.gammavariate(*self.prior_popsize)
+                #     deme1_mu = self.rng.gammavariate(*self.prior_mutRate)
+                #     deme1_theta = 4 * deme1_pop_size * deme1_mu
+                # params["param.popSize.{}.{}".format(lineage_pair.taxon_label, _DEME1_LABEL)] = deme1_pop_size
+                # params["param.mutRate.{}.{}".format(lineage_pair.taxon_label, _DEME1_LABEL)] = deme1_mu
+                # params["param.theta.{}.{}".format(lineage_pair.taxon_label, _DEME1_LABEL)] = deme1_theta
+                # ## -- ancestor deme 2
+                # if self.theta_constraints[2] == self.theta_constraints[0]:
+                #     deme2_pop_size = deme0_pop_size
+                #     deme2_mu = deme0_mu
+                #     deme2_theta = deme0_theta
+                # elif self.theta_constraints[2] == self.theta_constraints[1]:
+                #     deme2_pop_size = deme1_pop_size
+                #     deme2_mu = deme1_mu
+                #     deme2_theta = deme1_theta
+                # elif self.prior_ancestral_theta[0] != 0 and self.prior_ancestral_theta[1] != 0:
+                #     raise NotImplementedError
+                #     deme2_pop_size = self.rng.gammavariate(*self.prior_popsize)
+                #     deme2_mu = self.rng.gammavariate(*self.prior_mutRate)
+                #     deme2_theta = 4 * deme2_pop_size * deme2_mu
+                # else:
+                #     deme2_pop_size = self.rng.gammavariate(*self.prior_popsize)
+                #     deme2_mu = self.rng.gammavariate(*self.prior_mutRate)
+                #     deme2_theta = 4 * deme2_pop_size * deme2_mu
+                # params["param.popSize.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_pop_size
+                # params["param.mutRate.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_mu
+                # params["param.theta.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_theta
+
+                ## population parameters --- theta parameterization
+                deme0_theta = self.rng.gammavariate(*self.prior_theta)
+                if self.theta_constraints[1] == self.theta_constraints[0]:
+                    deme1_theta = deme0_theta
+                else:
+                    deme1_theta = self.rng.gammavariate(*self.prior_theta)
+                if self.theta_constraints[2] == self.theta_constraints[0]:
+                    deme2_theta = deme0_theta
+                elif self.theta_constraints[2] == self.theta_constraints[1]:
+                    deme2_theta = deme1_theta
+                elif self.prior_ancestral_theta[0] != 0 and self.prior_ancestral_theta[1] != 0:
+                    deme2_theta = self.rng.gammavariate(*self.prior_ancestral_theta)
+                else:
+                    deme2_theta = self.rng.gammavariate(*self.prior_theta)
+                params["param.theta.{}.{}".format(lineage_pair.taxon_label, _DEME0_LABEL)] = deme0_theta
+                params["param.theta.{}.{}".format(lineage_pair.taxon_label, _DEME1_LABEL)] = deme1_theta
+                params["param.theta.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_theta
+
                 for locus_id, locus_definition in enumerate(lineage_pair.locus_definitions):
-                    fsc2_config_d = {}
-                    for deme_idx in range(2):
-                        deme_label = compose_deme_label(deme_idx)
-                        # effective population sizes in genes, of each lineage deme
-                        deme_param_ne = lineage_pair.demes[deme_idx].population_size
-                        fsc2_config_d["d{}_population_size".format(deme_idx)] = deme_param_ne
-                        params["param.populationSize.{}.{}".format(lineage_pair_label, deme_label)] = deme_param_ne
-                        # num genes sampled, of each lineage deme
-                        fsc2_config_d["d{}_sample_size".format(deme_idx)] = self.lineage_pairs[lineage_pair_idx].demes[deme_idx].sample_size
-                        # TODO: specify data structure
-                        # divergence time
-                        fsc2_config_d["div_time"] =  div_time
-                        fsc2_run_configurations[lineage_pair_idx] = fsc2_config_d
+                    fsc2_config_d = {
+                        "d0_population_size": deme0_theta/4.0 * locus_definition.ploidy_factor,
+                        "d1_population_size": deme1_theta/4.0 * locus_definition.ploidy_factor,
+                        "d0_sample_size": locus_definition.num_genes_deme0,
+                        "d1_sample_size": locus_definition.num_genes_deme1,
+                        "div_time": div_time,
+                        "num_sites": locus_definition.num_sites,
+                        "recombination_rate": 0,
+                        "mutation_rate": locus_definition.mutation_rate_factor,
+                        "ti_proportional_bias": (1.0 * locus_definition.ti_tv_rate_ratio)/3.0
+                        }
+                    fsc2_run_configurations[locus_definition] = fsc2_config_d
         params["param.divModel"] = "".join(div_time_model_desc)
         return params, fsc2_run_configurations
 
@@ -790,9 +875,13 @@ if __name__ == "__main__":
                 "concentrationScale": 0.3766,
                 "thetaShape": 1,
                 "thetaScale": 0.03,
+                # "popsizeShape": 2,
+                # "popsizeScale": 1E7,
+                # "mutRateShape": 2,
+                # "mutRateScale": 2E-8,
                 "ancestralThetaShape": 0,
                 "ancestralThetaScale": 0,
-                "thetaParameters": 012,
+                "thetaParameters": "012",
                 "tauShape": 1.0,
                 "tauScale": 0.007,
                 "timeInSubsPerSite": 1,
@@ -810,7 +899,7 @@ if __name__ == "__main__":
                         'mutation_rate_factor': 1,
                         'num_genes_deme0': 38,
                         'num_genes_deme1': 38,
-                        'ti_tv_ratio': 3,
+                        'ti_tv_rate_ratio': 3,
                         'num_sites': 80,
                         'freq_a': 0.263,
                         'freq_c': 0.258,
@@ -824,7 +913,7 @@ if __name__ == "__main__":
                         'mutation_rate_factor': 1,
                         'num_genes_deme0': 38,
                         'num_genes_deme1': 36,
-                        'ti_tv_ratio': 3,
+                        'ti_tv_rate_ratio': 3,
                         'num_sites': 80,
                         'freq_a': 0.149,
                         'freq_c': 0.146,
@@ -832,10 +921,10 @@ if __name__ == "__main__":
                         'alignment_filepath': 'S1M2.fasta',
                         },
 
-                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_g': 0.188, 'alignment_filepath': 'S1M3.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_g': 0.175, 'alignment_filepath': 'S2M2.fasta', },
-                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', }
+                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 3, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_g': 0.188, 'alignment_filepath': 'S1M3.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_g': 0.175, 'alignment_filepath': 'S2M2.fasta', },
+                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', }
                 ],
             }
     gs = GerenukSimulator(
