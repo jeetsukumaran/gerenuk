@@ -93,7 +93,7 @@ FSC2_CONFIG_TEMPLATE = """\
 //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
 1
 //per Block:data type, number of loci, per generation recombination rate, per generation mutation rate and optional parameters
-DNA {num_sites} {recombination_rate} {mut_rate} {ti_proportional_bias}
+DNA {num_sites} {recombination_rate} {mutation_rate} {ti_proportional_bias}
 """
 
 def weighted_choice(seq, weights, rng):
@@ -181,7 +181,7 @@ class LocusDefinition(object):
     def configure(self, locus_d):
         # Doc/comments for parameters from, and following, PyMsBayes (Jamie Oaks; https://github.com/joaks1/PyMsBayes)
         # label for this locus
-        self.label = locus_d.pop("locus_label")
+        self.locus_label = locus_d.pop("locus_label")
         # The number in this column is used to scale for differences in ploidy among loci
         # or for differences in generation-times among taxa. In our example configuration
         # file 1.0 is used for loci from a diploid nuclear genome, whereas 0.25 is used
@@ -720,12 +720,13 @@ class SimulationWorker(multiprocessing.Process):
         params, fsc2_run_configurations = self.model.sample_parameter_values_from_prior()
         results_d.update(params)
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
-            self.fsc2_handler.run(
-                    field_name_prefix="stat.{}".format(compose_lineage_pair_label(lineage_pair_idx)),
-                    fsc2_config_d=fsc2_run_configurations[lineage_pair_idx],
-                    random_seed=self.model.rng.randint(1, 1E6),
-                    results_d=results_d,
-                    )
+            for locus_definition in lineage_pair.locus_definitions:
+                self.fsc2_handler.run(
+                        field_name_prefix="stat.{}.{}".format(lineage_pair.taxon_label, locus_definition.locus_label),
+                        fsc2_config_d=fsc2_run_configurations[locus_definition],
+                        random_seed=self.model.rng.randint(1, 1E6),
+                        results_d=results_d,
+                        )
         return results_d
 
 class GerenukSimulator(object):
