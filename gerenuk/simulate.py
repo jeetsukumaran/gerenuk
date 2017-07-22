@@ -367,7 +367,7 @@ class GerenukSimulationModel(object):
     num_lineage_pairs = property(_get_num_lineage_pairs)
 
     def sample_parameter_values_from_prior(self):
-        params = {}
+        params = collections.OrderedDict()
 
         ## div time
         concentration_v = self.rng.gammavariate(*self.prior_concentration)
