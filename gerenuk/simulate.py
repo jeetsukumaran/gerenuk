@@ -170,42 +170,167 @@ def compose_lineage_pair_label(lineage_pair_idx):
 def compose_deme_label(deme_idx):
     return "deme{}".format(deme_idx)
 
-class Deme(object):
-    def __init__(self, sample_size):
-        self.sample_size = sample_size # in number of genes
-        self.population_size = 1000 # in number of genes, i.e. N for haploid or 2N for diploid
+class LocusSample(object):
+    def __init__(self,
+            label,
+            ploidy_or_generation_factor,
+            mutation_rate_scale_factor,
+            num_genes_deme0,
+            num_genes_deme1,
+            ti_tv_ratio,
+            seq_length,
+            base_freq_a,
+            base_freq_c,
+            base_freq_g,
+            ):
+
+        # label for this locus
+        self.label = label
+
+        # The number in this column is used to scale for differences in ploidy among loci
+        # or for differences in generation-times among taxa. In our example configuration
+        # file 1.0 is used for loci from a diploid nuclear genome, whereas 0.25 is used
+        # for a region of the mitochondrial genome (because its haploid and maternally
+        # inherited). However, if a taxon "species-3" had 1/4 the generation times of
+        # the other two taxa, we would specify "1.0" for the third column for its
+        # mitochondrial locus, and "4.0" for the third column for its nuclear loci.
+        self.ploidy_or_generation_factor = ploidy_or_generation_factor
+
+        # The number in this column is used to scale for differences in mutation rates
+        # among taxa and/or loci. In our example configuration file, we are assuming that
+        # the mitochondrial locus ("mito-1") is evolving four-times faster than the other
+        # loci (hence, the "4.0" in this fourth column for the three rows representing
+        # the mitochondrial locus).
+        self.mutation_rate_scale_factor = mutation_rate_scale_factor
+
+        # Number of genes/sequences/taxa from first population
+        self.num_genes_deme0 = num_genes_deme0
+
+        # Number of genes/sequences/taxa from second population
+        self.num_genes_deme1 = num_genes_deme1
+
+        # This is the transition/transversion rate ratio ("Kappa") of the HKY85
+        # model of nucleotide substitution [4] for this alignment. NOTE: This is
+        # the transition/transversion rate ratio, not the "count" ratio. I.e.,
+        # Kappa = 1 is equal to the Jukes-Cantor model.
+        self.ti_tv_ratio = ti_tv_ratio
+
+        # Number of sites
+        self.seq_length = seq_length
+
+        # Equilibrium frequency of nucleotide
+        self.base_freq_a = base_freq_a
+
+        # Equilibrium frequency of nucleotide
+        self.base_freq_c = base_freq_c
+
+        # Equilibrium frequency of nucleotide
+        self.base_freq_g = base_freq_g
 
 class LineagePair(object):
     def __init__(self):
-        self.demes = (Deme(5), Deme(8))
+        pass
 
 class GerenukSimulationModel(object):
     pass
 
     def __init__(self,
-            rng):
-        self.num_lineage_pairs = 2
-        self.lineage_pairs = tuple(LineagePair() for i in range(self.num_lineage_pairs))
+            rng,
+            params_d,
+            locus_info,
+            ):
         self.rng = rng
+        # self.num_lineage_pairs = 2
+        # self.lineage_pairs = tuple(LineagePair() for i in range(self.num_lineage_pairs))
+        self.configure_loci(locus_info)
+        self.configure_params(params_d)
 
+    def configure_loci(self, locus_info):
+        taxon_labels = set()
+        for locus_d in locus_info:
+            taxon_labels.add( locus_d.pop("taxon_label") )
+        self.num_lineage_pairs = len(taxon_labels)
+
+    def configure_params(self, params_d):
+        params_d = utility.CaseInsensitiveDict(params_d)
         # shape and scale of Gamma hyperprior on
         # concentration parameter of Dirichlet process to partition pairs
-        self.prior_num_divergences = (1000.0, 0.00437)
+        self.prior_concentration = (
+                float(params_d.pop("concentrationShape")),
+                float(params_d.pop("concentrationScale"))
+                )
         # shape and scale of Gamma hyperprior on
         # theta (population) parameters for daughter deme
-        self.prior_theta = (4.0, 0.001)
+        self.prior_theta = (
+                float(params_d.pop("thetaShape")),
+                float(params_d.pop("thetaScale"))
+                )
         # shape and scale of Gamma hyperprior on
         # theta (population) parameters for ancestral deme
-        self.prior_ancestral_theta = (0, 0)
+        self.prior_ancestral_theta = (
+                float(params_d.pop("ancestralThetaShape")),
+                float(params_d.pop("ancestralThetaScale"))
+                )
         # specification of fixed/free parameters
-        self.theta_constraints = "000"
+        self.theta_constraints = params_d.pop("thetaParameters")
         # shape and scale of Gamma hyperprior on
         # divergence times
-        self.prior_tau = (1.0, 0.02)
+        self.prior_tau = (
+                float(params_d.pop("tauShape")),
+                float(params_d.pop("tauScale"))
+                )
+        # shape and scale of Gamma hyperprior on
+        # divergence times
+        self.prior_migration = (
+                float(params_d.pop("migrationShape")),
+                float(params_d.pop("migrationScale"))
+                )
+        if self.prior_migration[0] != 0 or self.prior_migration[1] != 0:
+            raise NotImplementedError("Migration is not yet supported")
+        # 1: Time units are in expected substitutions per site. For example, a
+        #    divergence of 0.05 means that, on average, 5% of sites have changed
+        #    since the populations diverged (so you expect 10% divergence between
+        #    the populations since the population divergence). Thus, you can
+        #    convert these units to the number of generations or years by dividing
+        #    by the mutation rate.
+        tss = int(params_d.pop("timeInSubsPerSite"))
+        self.time_in_subs_per_site = bool(tss)
+        if not self.time_in_subs_per_site:
+            raise NotImplementedError("Time not in expected substitutions per site not supported")
+        # If both are positive, these settings define a beta prior on the magnitude of a
+        # post-divergence bottleneck in each of the descendant populations.
+        # bottleProportionShapeA and bottleProportionShapeB correspond to the shape
+        # parameters alpha and beta, respectively, of the beta prior.
+        # The bottleneck magnitude is the proportion of the effective population size
+        # that remains during the bottleneck. For example, a value of 0.95 would mean
+        # that bottleneck reduces the effective population size by 5%.
+        # If either or both are zero or less, there is no post-divergence population
+        # bottleneck in the descendant populations (i.e., the bottleneck-magnitude
+        # parameters, along with the timing of each bottleneck, are removed from
+        # the model).
+        self.prior_bottleneck_proportion = (
+                float(params_d.pop("bottleProportionShapeA", 0)),
+                float(params_d.pop("bottleProportionShapeB", 0)),
+                )
+        # If bottleProportionShared = 0, then there are two free
+        # bottleneck-magnitude parameters for each population pair (one for
+        # each descendant population). If bottleProportionShared = 1, then
+        # there is one bottleneck-magnitude parameter for each population pair
+        # (i.e., the descendant populations of each pair share the same
+        # bottleneck magnitude; the bottleneck magnitude still varies among the
+        # pairs).
+        self.bottle_proportion_shared = bool(int(params_d.pop("bottleProportionShared")))
+        # If this setting is zero (the default), the number of divergence
+        # events is free to vary according to the Dirichlet process prior on
+        # divergence models. If it is greater than zero, then the model is
+        # constrained to numTauClasses divergence events. This is useful for
+        # simulation-based power analyses, but should not be used for empirical
+        # analyses.
+        self.num_tau_classes = int(params_d.pop("numTauClasses"))
 
     def sample_parameter_values_from_prior(self):
         params = {}
-        concentration_v = self.rng.gammavariate(*self.prior_num_divergences)
+        concentration_v = self.rng.gammavariate(*self.prior_concentration)
         params["param.concentration"] = concentration_v
         groups = sample_partition(
                 number_of_elements=self.num_lineage_pairs,
@@ -584,8 +709,16 @@ class GerenukSimulator(object):
         self.is_debug_mode = config_d.pop("debug_mode", False)
         if self.is_verbose_setup and self.is_debug_mode:
             self.run_logger.info("Running in DEBUG mode")
+        if "params" not in config_d:
+            raise ValueError("Missing 'params' entry in configuration")
+        params_d = config_d.pop("params")
+        if "locus_info" not in config_d:
+            raise ValueError("Mising 'locus_info' entry in configuration")
+        locus_info = config_d.pop("locus_info")
         self.model = GerenukSimulationModel(
                 rng=self.rng,
+                params_d=params_d,
+                locus_info=locus_info,
                 )
         if config_d:
             raise Exception("Unrecognized configuration entries: {}".format(config_d))
@@ -642,7 +775,35 @@ class GerenukSimulator(object):
         return results_collator
 
 if __name__ == "__main__":
-    config_d = {"name": "test"}
+    config_d = {
+            "name": "test",
+            "params": {
+                "concentrationShape": 10,
+                "concentrationScale": 0.3766,
+                "thetaShape": 1,
+                "thetaScale": 0.03,
+                "ancestralThetaShape": 0,
+                "ancestralThetaScale": 0,
+                "thetaParameters": 012,
+                "tauShape": 1.0,
+                "tauScale": 0.007,
+                "timeInSubsPerSite": 1,
+                "bottleProportionShapeA": 0,
+                "bottleProportionShapeB": 0,
+                "bottleProportionShared": 0,
+                "migrationShape": 0,
+                "migrationScale": 0,
+                "numTauClasses": 0
+                },
+            "locus_info": [
+                {'taxon_label': 'S1', 'locus_label': 'LocusS1M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 38, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.263, 'freq_c': 0.258, 'freq_t': 0.255, 'alignment_filepath': 'S1M1.fasta', },
+                {'taxon_label': 'S1', 'locus_label': 'LocusS1M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 36, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.149, 'freq_c': 0.146, 'freq_t': 0.226, 'alignment_filepath': 'S1M2.fasta', },
+                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_ratio': 3, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_t': 0.188, 'alignment_filepath': 'S1M3.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_t': 0.236, 'alignment_filepath': 'S2M1.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 40, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_t': 0.175, 'alignment_filepath': 'S2M2.fasta', },
+                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_t': 0.264, 'alignment_filepath': 'S3M1.fasta', }
+                ],
+            }
     gs = GerenukSimulator(
             config_d=config_d,
             num_processes=3,
