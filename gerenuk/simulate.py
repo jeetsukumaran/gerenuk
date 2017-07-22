@@ -381,7 +381,8 @@ class GerenukSimulationModel(object):
         theta = rng.gammavariate(*self.prior_theta)
 
         expected_lineage_pair_idxs = set([i for i in range(self.num_lineage_pairs)])
-        for group_id, group in enumerate(groups):
+        # groups sorted by earliest occurring lineage pair index, to retain consistent div time coding
+        for group_id, group in enumerate(sorted(groups, key=lambda group: min(lineage_pair_idx for lineage_pair_idx in group))):
             for lineage_pair_idx in group:
                 assert lineage_pair_idx in expected_lineage_pair_idxs
                 assert lineage_pair_idx not in fsc2_run_configurations
@@ -946,7 +947,7 @@ if __name__ == "__main__":
             num_processes=3,
             is_verbose_setup=True)
     try:
-        results = gs.execute(5)
+        results = gs.execute(15)
     except Exception as e:
         sys.exit(1)
     utility.write_dict_csv(
