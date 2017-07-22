@@ -225,6 +225,7 @@ class LineagePair(object):
     def add_locus_definition(self, locus_d):
         locus = LocusDefinition(locus_d)
         self.locus_definitions.append(locus)
+        return locus
 
 class GerenukSimulationModel(object):
 
@@ -240,6 +241,7 @@ class GerenukSimulationModel(object):
     def configure_loci(self, locus_info):
         self.label_to_lineage_pair_map = {}
         self.lineage_pairs = [] # list to maintain order for indexing during Dirichlet process partitioning
+        self.lineage_pairs_loci_labels = {}
         for locus_d in locus_info:
             taxon_label = locus_d.pop("taxon_label")
             try:
@@ -249,7 +251,11 @@ class GerenukSimulationModel(object):
                         taxon_label=taxon_label)
                 self.label_to_lineage_pair_map[taxon_label] = lineage_pair
                 self.lineage_pairs.append(lineage_pair)
-            lineage_pair.add_locus_definition(locus_d)
+                self.lineage_pairs_loci_labels[lineage_pair] = set()
+            locus_definition = lineage_pair.add_locus_definition(locus_d)
+            if locus_definition.locus_label in self.lineage_pairs_loci_labels[lineage_pair]:
+                raise ValueError("Lineage pair '{}': locus with label '{}' has already been defined".format(lineage_pair.taxon_label, locus_definition.locus_label))
+            self.lineage_pairs_loci_labels[lineage_pair].add(locus_definition.locus_label)
 
     def configure_params(self, params_d):
         # Doc/comments for parameters from, and following, PyMsBayes (Jamie Oaks; https://github.com/joaks1/PyMsBayes)
