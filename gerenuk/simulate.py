@@ -452,15 +452,15 @@ class GerenukSimulationModel(object):
 
                 for locus_id, locus_definition in enumerate(lineage_pair.locus_definitions):
                     fsc2_config_d = {
-                        "d0_population_size": deme0_theta/4.0 * locus_definition.ploidy_factor,
-                        "d1_population_size": deme1_theta/4.0 * locus_definition.ploidy_factor,
+                        "d0_population_size": deme0_theta/4.0 * locus_definition.ploidy_factor * 1E8, # the * 1E8 is because Fastsimcoal coerces this to an integer, and we do not so much have Ne as much as Ne * mu
+                        "d1_population_size": deme1_theta/4.0 * locus_definition.ploidy_factor * 1E8, # we adjust it in the mutation rate below
                         "d0_sample_size": locus_definition.num_genes_deme0,
                         "d1_sample_size": locus_definition.num_genes_deme1,
                         "div_time": div_time,
                         "num_sites": locus_definition.num_sites,
                         "recombination_rate": 0,
-                        "mutation_rate": locus_definition.mutation_rate_factor,
-                        "ti_proportional_bias": (1.0 * locus_definition.ti_tv_rate_ratio)/3.0
+                        "mutation_rate": locus_definition.mutation_rate_factor * 1E-8,
+                        "ti_proportional_bias": (1.0 * locus_definition.ti_tv_rate_ratio)/3.0,
                         }
                     fsc2_run_configurations[locus_definition] = fsc2_config_d
         params["param.divModel"] = "".join(div_time_model_desc)
@@ -922,10 +922,11 @@ if __name__ == "__main__":
                         'alignment_filepath': 'S1M2.fasta',
                         },
 
-                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 3, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_g': 0.188, 'alignment_filepath': 'S1M3.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
+                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 1, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_g': 0.188, 'alignment_filepath': 'S1M3.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 1.2, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
                 {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_g': 0.175, 'alignment_filepath': 'S2M2.fasta', },
-                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', }
+                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', },
+                {'taxon_label': 'S3', 'locus_label': 'LocusS3M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_rate_ratio': 1.0, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M2.fasta', }
                 ],
             }
     gs = GerenukSimulator(
