@@ -229,12 +229,7 @@ class LineagePair(object):
 
 class GerenukSimulationModel(object):
 
-    def __init__(self,
-            rng,
-            params_d,
-            locus_info,
-            ):
-        self.rng = rng
+    def __init__(self, params_d, locus_info,):
         self.configure_loci(locus_info)
         self.configure_params(params_d)
 
@@ -366,24 +361,24 @@ class GerenukSimulationModel(object):
         return len(self.lineage_pairs)
     num_lineage_pairs = property(_get_num_lineage_pairs)
 
-    def sample_parameter_values_from_prior(self):
+    def sample_parameter_values_from_prior(self, rng):
         params = collections.OrderedDict()
 
         ## div time
-        concentration_v = self.rng.gammavariate(*self.prior_concentration)
+        concentration_v = rng.gammavariate(*self.prior_concentration)
         params["param.concentration"] = concentration_v
         groups = sample_partition(
                 number_of_elements=self.num_lineage_pairs,
                 scaling_parameter=concentration_v, # sample from prior
-                rng=self.rng,
+                rng=rng,
                 )
         params["param.numDivTimes"] = len(groups)
-        div_time_values = [self.rng.gammavariate(*self.prior_tau) for i in groups]
+        div_time_values = [rng.gammavariate(*self.prior_tau) for i in groups]
         fsc2_run_configurations = collections.OrderedDict()
         div_time_model_desc = [None for i in range(self.num_lineage_pairs)]
 
         # thetas
-        theta = self.rng.gammavariate(*self.prior_theta)
+        theta = rng.gammavariate(*self.prior_theta)
 
         expected_lineage_pair_idxs = set([i for i in range(self.num_lineage_pairs)])
         for group_id, group in enumerate(groups):
@@ -398,8 +393,8 @@ class GerenukSimulationModel(object):
 
                 ## population parameters --- separate N and mu parameterization
                 ## -- deme 0
-                # deme0_pop_size = self.rng.gammavariate(*self.prior_popsize)
-                # deme0_mu = self.rng.gammavariate(*self.prior_mutRate)
+                # deme0_pop_size = rng.gammavariate(*self.prior_popsize)
+                # deme0_mu = rng.gammavariate(*self.prior_mutRate)
                 # deme0_theta = 4 * deme0_pop_size * deme_0_mu
                 # params["param.popSize.{}.{}".format(lineage_pair.taxon_label, _DEME0_LABEL)] = deme0_pop_size
                 # params["param.mutRate.{}.{}".format(lineage_pair.taxon_label, _DEME0_LABEL)] = deme0_mu
@@ -410,8 +405,8 @@ class GerenukSimulationModel(object):
                 #     deme1_mu = deme0_mu
                 #     deme1_theta = deme0_theta
                 # else:
-                #     deme1_pop_size = self.rng.gammavariate(*self.prior_popsize)
-                #     deme1_mu = self.rng.gammavariate(*self.prior_mutRate)
+                #     deme1_pop_size = rng.gammavariate(*self.prior_popsize)
+                #     deme1_mu = rng.gammavariate(*self.prior_mutRate)
                 #     deme1_theta = 4 * deme1_pop_size * deme1_mu
                 # params["param.popSize.{}.{}".format(lineage_pair.taxon_label, _DEME1_LABEL)] = deme1_pop_size
                 # params["param.mutRate.{}.{}".format(lineage_pair.taxon_label, _DEME1_LABEL)] = deme1_mu
@@ -427,31 +422,31 @@ class GerenukSimulationModel(object):
                 #     deme2_theta = deme1_theta
                 # elif self.prior_ancestral_theta[0] != 0 and self.prior_ancestral_theta[1] != 0:
                 #     raise NotImplementedError
-                #     deme2_pop_size = self.rng.gammavariate(*self.prior_popsize)
-                #     deme2_mu = self.rng.gammavariate(*self.prior_mutRate)
+                #     deme2_pop_size = rng.gammavariate(*self.prior_popsize)
+                #     deme2_mu = rng.gammavariate(*self.prior_mutRate)
                 #     deme2_theta = 4 * deme2_pop_size * deme2_mu
                 # else:
-                #     deme2_pop_size = self.rng.gammavariate(*self.prior_popsize)
-                #     deme2_mu = self.rng.gammavariate(*self.prior_mutRate)
+                #     deme2_pop_size = rng.gammavariate(*self.prior_popsize)
+                #     deme2_mu = rng.gammavariate(*self.prior_mutRate)
                 #     deme2_theta = 4 * deme2_pop_size * deme2_mu
                 # params["param.popSize.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_pop_size
                 # params["param.mutRate.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_mu
                 # params["param.theta.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_theta
 
                 ## population parameters --- theta parameterization
-                deme0_theta = self.rng.gammavariate(*self.prior_theta)
+                deme0_theta = rng.gammavariate(*self.prior_theta)
                 if self.theta_constraints[1] == self.theta_constraints[0]:
                     deme1_theta = deme0_theta
                 else:
-                    deme1_theta = self.rng.gammavariate(*self.prior_theta)
+                    deme1_theta = rng.gammavariate(*self.prior_theta)
                 if self.theta_constraints[2] == self.theta_constraints[0]:
                     deme2_theta = deme0_theta
                 elif self.theta_constraints[2] == self.theta_constraints[1]:
                     deme2_theta = deme1_theta
                 elif self.prior_ancestral_theta[0] != 0 and self.prior_ancestral_theta[1] != 0:
-                    deme2_theta = self.rng.gammavariate(*self.prior_ancestral_theta)
+                    deme2_theta = rng.gammavariate(*self.prior_ancestral_theta)
                 else:
-                    deme2_theta = self.rng.gammavariate(*self.prior_theta)
+                    deme2_theta = rng.gammavariate(*self.prior_theta)
                 params["param.theta.{}.{}".format(lineage_pair.taxon_label, _DEME0_LABEL)] = deme0_theta
                 params["param.theta.{}.{}".format(lineage_pair.taxon_label, _DEME1_LABEL)] = deme1_theta
                 params["param.theta.{}.{}".format(lineage_pair.taxon_label, _ANCESTOR_DEME_LABEL)] = deme2_theta
@@ -656,6 +651,7 @@ class SimulationWorker(multiprocessing.Process):
             run_logger,
             logging_frequency,
             messenger_lock,
+            random_seed,
             debug_mode,
             ):
         multiprocessing.Process.__init__(self, name=name)
@@ -664,6 +660,7 @@ class SimulationWorker(multiprocessing.Process):
                 fsc2_path=fsc2_path,
                 working_directory=working_directory)
         self.model = model
+        self.rng = random.Random(random_seed)
         self.work_queue = work_queue
         self.results_queue = results_queue
         self.run_logger = run_logger
@@ -735,14 +732,14 @@ class SimulationWorker(multiprocessing.Process):
 
     def simulate(self):
         results_d = collections.OrderedDict()
-        params, fsc2_run_configurations = self.model.sample_parameter_values_from_prior()
+        params, fsc2_run_configurations = self.model.sample_parameter_values_from_prior(rng=self.rng)
         results_d.update(params)
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
             for locus_definition in lineage_pair.locus_definitions:
                 self.fsc2_handler.run(
                         field_name_prefix="stat.{}.{}".format(lineage_pair.taxon_label, locus_definition.locus_label),
                         fsc2_config_d=fsc2_run_configurations[locus_definition],
-                        random_seed=self.model.rng.randint(1, 1E6),
+                        random_seed=self.rng.randint(1, 1E6),
                         results_d=results_d,
                         )
         return results_d
@@ -827,11 +824,7 @@ class GerenukSimulator(object):
         if "locus_info" not in config_d:
             raise ValueError("Mising 'locus_info' entry in configuration")
         locus_info = config_d.pop("locus_info")
-        self.model = GerenukSimulationModel(
-                rng=self.rng,
-                params_d=params_d,
-                locus_info=locus_info,
-                )
+        self.model = GerenukSimulationModel(params_d=params_d, locus_info=locus_info,)
         if config_d:
             raise Exception("Unrecognized configuration entries: {}".format(config_d))
 
@@ -858,6 +851,7 @@ class GerenukSimulator(object):
                     run_logger=self.run_logger,
                     logging_frequency=self.logging_frequency,
                     messenger_lock=messenger_lock,
+                    random_seed=self.rng.randint(1, sys.maxint),
                     debug_mode=self.is_debug_mode,
                     )
             worker.start()
