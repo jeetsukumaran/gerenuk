@@ -500,11 +500,22 @@ class Fsc2RuntimeError(RuntimeError):
 
 class Fsc2Handler(object):
 
-    def __init__(self, name, fsc2_path, working_directory):
+    def __init__(self,
+            name,
+            fsc2_path,
+            working_directory,
+            is_folded_site_frequency_spectrum,
+            ):
         self.name = name
         self.fsc2_path = fsc2_path
         self.working_directory = working_directory
         self.is_folded_site_frequency_spectrum = is_folded_site_frequency_spectrum
+        if self.is_folded_site_frequency_spectrum:
+            self.sfs_file_prefix = "MAF"
+            self.fsc2_sfs_generation_command = "-m"
+        else:
+            self.sfs_file_prefix = "DAF"
+            self.fsc2_sfs_generation_command = "-d"
         self._is_file_system_staged = False
         self._num_executions = 0
         self._current_execution_id = None
@@ -536,19 +547,19 @@ class Fsc2Handler(object):
 
     def _get_result_deme0_derived_allele_frequency_filepath(self):
         if self._deme0_derived_allele_frequency_filepath is None:
-            self._deme0_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop0.obs".format(self.name))
+            self._deme0_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_{}pop0.obs".format(self.name, self.sfs_file_prefix))
         return self._deme0_derived_allele_frequency_filepath
     deme0_derived_allele_frequency_filepath = property(_get_result_deme0_derived_allele_frequency_filepath)
 
     def _get_result_deme1_derived_allele_frequency_filepath(self):
         if self._deme1_derived_allele_frequency_filepath is None:
-            self._deme1_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_DAFpop1.obs".format(self.name))
+            self._deme1_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_{}pop1.obs".format(self.name, self.sfs_file_prefix))
         return self._deme1_derived_allele_frequency_filepath
     deme1_derived_allele_frequency_filepath = property(_get_result_deme1_derived_allele_frequency_filepath)
 
     def _get_result_joint_derived_allele_frequency_filepath(self):
         if self._joint_derived_allele_frequency_filepath is None:
-            self._joint_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_jointDAFpop1_0.obs".format(self.name))
+            self._joint_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_joint{}pop1_0.obs".format(self.name, self.sfs_file_prefix))
         return self._joint_derived_allele_frequency_filepath
     joint_derived_allele_frequency_filepath = property(_get_result_joint_derived_allele_frequency_filepath)
 
@@ -586,7 +597,7 @@ class Fsc2Handler(object):
             for key, val in zip(header_row, results_d_row):
                 if not val:
                     continue
-                results_d["{}.{}".format(field_name_prefix, key)] = int(val)
+                results_d["{}.{}".format(field_name_prefix, key)] = float(val)
         return results_d
 
     def _parse_joint_derived_allele_frequencies(self,
@@ -604,21 +615,21 @@ class Fsc2Handler(object):
                 assert len(cols) - 1 == len(col_keys)
                 row_key = cols[0]
                 for col_key, val in zip(col_keys, cols[1:]):
-                    results_d["{}.{}.{}".format(field_name_prefix, row_key, col_key)] = int(val)
+                    results_d["{}.{}.{}".format(field_name_prefix, row_key, col_key)] = float(val)
         return results_d
 
     def _harvest_run_results(self, field_name_prefix, results_d):
         self._parse_deme_derived_allele_frequencies(
                 filepath=self.deme0_derived_allele_frequency_filepath,
-                field_name_prefix="{}.{}.dfs".format(field_name_prefix, compose_deme_label(0)),
+                field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(0)),
                 results_d=results_d)
         self._parse_deme_derived_allele_frequencies(
                 filepath=self.deme1_derived_allele_frequency_filepath,
-                field_name_prefix="{}.{}.dfs".format(field_name_prefix, compose_deme_label(1)),
+                field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(1)),
                 results_d=results_d)
         self._parse_joint_derived_allele_frequencies(
                 filepath=self.joint_derived_allele_frequency_filepath,
-                field_name_prefix="{}.joint.dfs".format(field_name_prefix),
+                field_name_prefix="{}.joint.sfs".format(field_name_prefix),
                 results_d=results_d)
         return results_d
 
@@ -636,7 +647,8 @@ class Fsc2Handler(object):
         cmds.append(self.fsc2_path)
         cmds.extend(["-n", "1"]) # number of simulations to perform
         cmds.extend(["-r", str(random_seed)]) # seed for random number generator (positive integer <= 1E6)
-        cmds.extend(["-d", "-s0", "-x", "-I", ])
+        cmds.append(self.fsc2_sfs_generation_command)
+        cmds.extend(["-s0", "-x", "-I", ])
         cmds.extend(["-i", self.parameter_filepath])
         p = subprocess.Popen(cmds,
                 stdin=subprocess.PIPE,
@@ -677,7 +689,8 @@ class SimulationWorker(multiprocessing.Process):
         self.fsc2_handler = Fsc2Handler(
                 name=name,
                 fsc2_path=fsc2_path,
-                working_directory=working_directory)
+                working_directory=working_directory,
+                is_folded_site_frequency_spectrum=is_folded_site_frequency_spectrum)
         self.model = model
         self.rng = random.Random(random_seed)
         self.work_queue = work_queue
@@ -898,7 +911,9 @@ class GerenukSimulator(object):
         try:
             while result_count < nreps:
                 result = results_queue.get()
-                if isinstance(result, Exception) or isinstance(result, KeyboardInterrupt):
+                if isinstance(result, KeyboardInterrupt):
+                    raise result
+                elif isinstance(result, Exception):
                     self.run_logger.error("Exception raised in worker process '{}'"
                                           "\n>>>\n{}<<<\n".format(
                                               result.worker_name,
@@ -918,6 +933,7 @@ class GerenukSimulator(object):
 if __name__ == "__main__":
     config_d = {
             "name": "test",
+            "site_frequency_spectrum_type": "folded",
             "params": {
                 "concentrationShape": 10,
                 "concentrationScale": 0.3766,
@@ -983,6 +999,9 @@ if __name__ == "__main__":
     try:
         results = gs.execute(5)
     except Exception as e:
+        sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
+            "  ".join(traceback.format_tb(sys.exc_info()[2])),
+            e))
         sys.exit(1)
     utility.write_dict_csv(
             list_of_dicts=results,
