@@ -366,6 +366,7 @@ class GerenukSimulationModel(object):
 
         ## div time
         concentration_v = rng.gammavariate(*self.prior_concentration)
+        params["param.divModel"] = "NA" # initialize here, so first column
         params["param.concentration"] = concentration_v
         groups = sample_partition(
                 number_of_elements=self.num_lineage_pairs,
@@ -666,6 +667,8 @@ class SimulationWorker(multiprocessing.Process):
             logging_frequency,
             messenger_lock,
             random_seed,
+            stat_label_prefix,
+            is_include_model_id_field,
             debug_mode,
             ):
         multiprocessing.Process.__init__(self, name=name)
@@ -680,10 +683,12 @@ class SimulationWorker(multiprocessing.Process):
         self.run_logger = run_logger
         self.logging_frequency = logging_frequency
         self.messenger_lock = messenger_lock
+        self.stat_label_prefix = stat_label_prefix
+        self.is_include_model_id_field = is_include_model_id_field
+        self.is_debug_mode = debug_mode
         self.kill_received = False
         self.num_tasks_received = 0
         self.num_tasks_completed = 0
-        self.is_debug_mode = debug_mode
 
     def send_worker_message(self, msg, level):
         if self.run_logger is None:
@@ -751,7 +756,10 @@ class SimulationWorker(multiprocessing.Process):
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
             for locus_definition in lineage_pair.locus_definitions:
                 self.fsc2_handler.run(
-                        field_name_prefix="stat.{}.{}".format(lineage_pair.taxon_label, locus_definition.locus_label),
+                        field_name_prefix="{}.{}.{}".format(
+                                self.stat_label_prefix,
+                                lineage_pair.taxon_label,
+                                locus_definition.locus_label),
                         fsc2_config_d=fsc2_run_configurations[locus_definition],
                         random_seed=self.rng.randint(1, 1E6),
                         results_d=results_d,
@@ -832,6 +840,8 @@ class GerenukSimulator(object):
         self.is_debug_mode = config_d.pop("debug_mode", False)
         if self.is_verbose_setup and self.is_debug_mode:
             self.run_logger.info("Running in DEBUG mode")
+        self.stat_label_prefix = config_d.pop("stat_label_prefix", "stat")
+        self.is_include_model_id_field = config_d.pop("is_include_model_id_field", False)
         if "params" not in config_d:
             raise ValueError("Missing 'params' entry in configuration")
         params_d = config_d.pop("params")
@@ -866,6 +876,8 @@ class GerenukSimulator(object):
                     logging_frequency=self.logging_frequency,
                     messenger_lock=messenger_lock,
                     random_seed=self.rng.randint(1, sys.maxint),
+                    stat_label_prefix=self.stat_label_prefix,
+                    is_include_model_id_field=self.is_include_model_id_field,
                     debug_mode=self.is_debug_mode,
                     )
             worker.start()
