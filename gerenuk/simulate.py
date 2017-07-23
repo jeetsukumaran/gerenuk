@@ -579,7 +579,13 @@ class Fsc2Handler(object):
 
     def _generate_parameter_file(self, fsc2_config_d):
         assert self.parameter_filepath
-        with open(os.path.join(self.working_directory, self.parameter_filepath), "w") as dest:
+        self._write_parameter_configuration(
+                filepath=os.path.join(self.working_directory, self.parameter_filepath),
+                fsc2_config_d=fsc2_config_d,
+                )
+
+    def _write_parameter_configuration(self, filepath, fsc2_config_d):
+        with open(filepath, "w") as dest:
             config = FSC2_CONFIG_TEMPLATE.format(**fsc2_config_d)
             dest.write(config)
 
