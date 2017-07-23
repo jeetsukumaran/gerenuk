@@ -9,36 +9,59 @@ from gerenuk.test import TESTS_DATA_DIR
 
 class Fsc2SiteFilepathTestCase(unittest.TestCase):
 
-    def setUp(self):
-        self.fsc = simulate.Fsc2Handler(
+    def get_fsc_handler(self, is_folded_site_frequency_spectrum):
+        fsc_handler = simulate.Fsc2Handler(
                 name="test-one",
                 fsc2_path="fsc25",
                 working_directory=TESTS_DATA_DIR,
-                is_folded_site_frequency_spectrum=True,
+                is_folded_site_frequency_spectrum=is_folded_site_frequency_spectrum,
                 )
+        return fsc_handler
 
     def test_parameter_filepath(self):
-        self.assertEqual(self.fsc.parameter_filepath, "test-one.par")
+        fsc_handler = self.get_fsc_handler(True)
+        self.assertEqual(fsc_handler.parameter_filepath, "test-one.par")
 
     def test_results_dirpath(self):
-        self.assertEqual(self.fsc.results_dirpath,
+        fsc_handler = self.get_fsc_handler(True)
+        self.assertEqual(fsc_handler.results_dirpath,
                 os.path.join(TESTS_DATA_DIR, "test-one"))
 
     def test_deme0_derived_allele_frequency_filepath(self):
-        self.assertEqual(self.fsc.deme0_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_MAFpop0.obs"))
+        for folded, expected in (
+                (True, "M"),
+                (False, "D"),
+                ):
+            fsc_handler = self.get_fsc_handler(folded)
+            self.assertEqual(fsc_handler.deme0_derived_allele_frequency_filepath,
+                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_{}AFpop0.obs".format(expected)))
 
     def test_deme0_derived_allele_frequency_filepath(self):
-        self.assertEqual(self.fsc.deme0_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_MAFpop0.obs"))
+        for folded, expected in (
+                (True, "M"),
+                (False, "D"),
+                ):
+            fsc_handler = self.get_fsc_handler(folded)
+            self.assertEqual(fsc_handler.deme0_derived_allele_frequency_filepath,
+                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_{}AFpop0.obs".format(expected)))
 
     def test_deme1_derived_allele_frequency_filepath(self):
-        self.assertEqual(self.fsc.deme1_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_MAFpop1.obs"))
+        for folded, expected in (
+                (True, "M"),
+                (False, "D"),
+                ):
+            fsc_handler = self.get_fsc_handler(folded)
+            self.assertEqual(fsc_handler.deme1_derived_allele_frequency_filepath,
+                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_{}AFpop1.obs".format(expected)))
 
     def test_joint_derived_allele_frequency_filepath(self):
-        self.assertEqual(self.fsc.joint_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_jointMAFpop1_0.obs"))
+        for folded, expected in (
+                (True, "M"),
+                (False, "D"),
+                ):
+            fsc_handler = self.get_fsc_handler(folded)
+            self.assertEqual(fsc_handler.joint_derived_allele_frequency_filepath,
+                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_joint{}AFpop1_0.obs".format(expected)))
 
 class Fsc2DataExtractionTestCase(unittest.TestCase):
 
