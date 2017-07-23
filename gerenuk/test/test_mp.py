@@ -11,7 +11,7 @@ class TestWorker(simulate.SimulationWorker):
         return {
                 "name": self.name,
                 "task_count": self.num_tasks_received,
-                "rand_int": self.model.rng.randint(1, 1E6),
+                "rand_int": self.rng.randint(1, 1E6),
                 }
 
 class MpArchitectureTests(unittest.TestCase):

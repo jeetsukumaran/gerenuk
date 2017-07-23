@@ -14,6 +14,7 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
                 name="test-one",
                 fsc2_path="fsc25",
                 working_directory=TESTS_DATA_DIR,
+                is_folded_site_frequency_spectrum=True,
                 )
 
     def test_parameter_filepath(self):
@@ -25,19 +26,19 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
 
     def test_deme0_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.deme0_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_DAFpop0.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_MAFpop0.obs"))
 
     def test_deme0_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.deme0_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_DAFpop0.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_MAFpop0.obs"))
 
     def test_deme1_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.deme1_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_DAFpop1.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_MAFpop1.obs"))
 
     def test_joint_derived_allele_frequency_filepath(self):
         self.assertEqual(self.fsc.joint_derived_allele_frequency_filepath,
-                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_jointDAFpop1_0.obs"))
+                os.path.join(TESTS_DATA_DIR, "test-one", "test-one_jointMAFpop1_0.obs"))
 
 class Fsc2DataExtractionTestCase(unittest.TestCase):
 
@@ -46,13 +47,14 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
                 name="test-one",
                 fsc2_path="fsc25",
                 working_directory=TESTS_DATA_DIR,
+                is_folded_site_frequency_spectrum=True,
                 )
 
     def test_deme_derived_allele_frequencies(self):
         fixtures = [
-                {"filename": "test-one_DAFpop0.obs",
+                {"filename": "test-one_MAFpop0.obs",
                  "expected_values": (929, 110, 238, 101, 0, 216)},
-                {"filename": "test-one_DAFpop1.obs",
+                {"filename": "test-one_MAFpop1.obs",
                  "expected_values": (39, 1100, 98, 40, 0, 101, 214, 2, 0)},
                 ]
         for fidx, fixture in enumerate(fixtures):
@@ -69,7 +71,7 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
 
     def test_joint_derived_allele_frequencies(self):
         fixtures = [
-                {"filename": "test-one_jointDAFpop1_0.obs",
+                {"filename": "test-one_jointMAFpop1_0.obs",
                  "expected_values": (
                         0   , 39 , 0   , 0   , 0 , 0   ,
                         918 , 11 , 171 , 0   , 0 , 0   ,
