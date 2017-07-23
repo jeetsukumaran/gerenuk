@@ -504,6 +504,7 @@ class Fsc2Handler(object):
         self.name = name
         self.fsc2_path = fsc2_path
         self.working_directory = working_directory
+        self.is_folded_site_frequency_spectrum = is_folded_site_frequency_spectrum
         self._is_file_system_staged = False
         self._num_executions = 0
         self._current_execution_id = None
@@ -667,6 +668,7 @@ class SimulationWorker(multiprocessing.Process):
             logging_frequency,
             messenger_lock,
             random_seed,
+            is_folded_site_frequency_spectrum,
             stat_label_prefix,
             is_include_model_id_field,
             debug_mode,
@@ -683,6 +685,7 @@ class SimulationWorker(multiprocessing.Process):
         self.run_logger = run_logger
         self.logging_frequency = logging_frequency
         self.messenger_lock = messenger_lock
+        self.is_folded_site_frequency_spectrum = is_folded_site_frequency_spectrum
         self.stat_label_prefix = stat_label_prefix
         self.is_include_model_id_field = is_include_model_id_field
         self.is_debug_mode = debug_mode
@@ -840,6 +843,11 @@ class GerenukSimulator(object):
         self.is_debug_mode = config_d.pop("debug_mode", False)
         if self.is_verbose_setup and self.is_debug_mode:
             self.run_logger.info("Running in DEBUG mode")
+        self.site_frequency_spectrum_type = config_d.pop("site_frequency_spectrum_type", "unfolded").lower()
+        if self.site_frequency_spectrum_type == "folded" or self.site_frequency_spectrum_type == "minor":
+            self.is_folded_site_frequency_spectrum = True
+        else:
+            self.is_folded_site_frequency_spectrum = False
         self.stat_label_prefix = config_d.pop("stat_label_prefix", "stat")
         self.is_include_model_id_field = config_d.pop("is_include_model_id_field", False)
         if "params" not in config_d:
@@ -876,6 +884,7 @@ class GerenukSimulator(object):
                     logging_frequency=self.logging_frequency,
                     messenger_lock=messenger_lock,
                     random_seed=self.rng.randint(1, sys.maxint),
+                    is_folded_site_frequency_spectrum=self.is_folded_site_frequency_spectrum,
                     stat_label_prefix=self.stat_label_prefix,
                     is_include_model_id_field=self.is_include_model_id_field,
                     debug_mode=self.is_debug_mode,
