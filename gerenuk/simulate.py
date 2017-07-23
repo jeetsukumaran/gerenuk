@@ -63,7 +63,7 @@ FSC2_CONFIG_TEMPLATE = """\
 //historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event
 1  historical event
 {div_time} 0 1 1 2 0 0
-//Number of independent loci [chromosome]; "0" => same structure for all loci
+//Number of independent loci [chromosome]; '0' => same structure for all loci
 1 0
 //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
 1

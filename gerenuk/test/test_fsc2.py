@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import os
+import re
 import unittest
 import time
 import collections
@@ -15,27 +16,56 @@ class Fsc2ConfigurationTestCase(unittest.TestCase):
                 name="test-one",
                 fsc2_path="fsc25",
                 working_directory=TESTS_DATA_DIR,
-                is_folded_site_frequency_spectrum=is_folded_site_frequency_spectrum,
+                is_folded_site_frequency_spectrum=True,
                 )
         fsc2_config_d = {
-                "d0_population_size": 100,
-                "d1_population_size": 100,
-                "d0_sample_size": 100,
-                "div_time" : 100,
-                "num_sites": 100,
-                "recombination_rate": 100,
-                "mutation_rate" : 100,
-                "ti_proportional_bias": 100,
+                "d0_population_size"   : "Test-1",
+                "d1_population_size"   : "Test-2",
+                "d0_sample_size"       : "Test-3",
+                "d1_sample_size"       : "Test-4",
+                "div_time"             : "Test-5",
+                "num_sites"            : "Test-6",
+                "recombination_rate"   : "Test-7",
+                "mutation_rate"        : "Test-8",
+                "ti_proportional_bias" : "Test-9",
                 }
         dest = StringIO()
         fsc_handler._write_parameter_configuration(
-                file=dest,
-                fsc2_config_d=fsc2_config_d):
-        result = dest.getvalue()
+                dest=dest,
+                fsc2_config_d=fsc2_config_d)
+        result = [row for row in dest.getvalue().split("\n") if row]
+        # expected = re.sub(r"{[A-Za-z0-9_]+}", "#Test#", simulate.FSC2_CONFIG_TEMPLATE)
+        expected = [
+            "//Number of population samples (demes)",
+            "2",
+            "//Population effective sizes (number of genes)",
+            "Test-1",
+            "Test-2",
+            "//Sample sizes",
+            "Test-3",
+            "Test-4",
+            "//Growth rates: negative growth implies population expansion",
+            "0",
+            "0",
+            "//Number of migration matrices : 0 implies no migration between demes",
+            "0",
+            "//historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event",
+            "1  historical event",
+            "Test-5 0 1 1 2 0 0",
+            "//Number of independent loci [chromosome]; '0' => same structure for all loci",
+            "1 0",
+            "//Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci",
+            "1",
+            "//per Block:data type, number of loci, per generation recombination rate, per generation mutation rate and optional parameters",
+            "DNA Test-6 Test-7 Test-8 Test-9",
+        ]
+        self.assertEqual(len(expected), len(result))
+        for v1, v2 in zip(expected, result):
+            self.assertEqual(v1, v2)
 
 class Fsc2SiteFilepathTestCase(unittest.TestCase):
 
-    def get_fsc_handler(is_folded_site_frequency_spectrum):
+    def get_fsc_handler(self, is_folded_site_frequency_spectrum):
         fsc_handler = simulate.Fsc2Handler(
                 name="test-one",
                 fsc2_path="fsc25",
