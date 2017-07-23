@@ -46,31 +46,6 @@ import traceback
 
 from gerenuk import utility
 
-# FSC2_CONFIG_TEMPLATE = """\
-# //Number of population samples (demes)
-# 2
-# //Population effective sizes (number of genes)
-# 1000
-# 1000
-# //Sample sizes
-# 100
-# 100
-# //Growth rates: negative growth implies population expansion
-# 0
-# 0
-# //Number of migration matrices : 0 implies no migration between demes
-# 0
-# //historical event: time, source, sink, migrants, new size, new growth rate, migr. matrix 4 historical event
-# 1  historical event
-# 10000 0 1 1 2 0 0
-# //Number of independent loci [chromosome]
-# 1 0
-# //Per chromosome: Number of contiguous linkage Block: a block is a set of contiguous loci
-# 1
-# //per Block:data type, number of loci, per generation recombination and mutation rates and optional parameters
-# DNA 10 0.00000 0.02 0.33
-# """
-
 FSC2_CONFIG_TEMPLATE = """\
 //Number of population samples (demes)
 2
@@ -579,13 +554,13 @@ class Fsc2Handler(object):
 
     def _generate_parameter_file(self, fsc2_config_d):
         assert self.parameter_filepath
-        self._write_parameter_configuration(
-                filepath=os.path.join(self.working_directory, self.parameter_filepath),
-                fsc2_config_d=fsc2_config_d,
-                )
+        with open(os.path.join(self.working_directory, self.parameter_filepath), "w") as dest:
+            self._write_parameter_configuration(
+                    dest=dest,
+                    fsc2_config_d=fsc2_config_d,
+                    )
 
-    def _write_parameter_configuration(self, filepath, fsc2_config_d):
-        with open(filepath, "w") as dest:
+    def _write_parameter_configuration(self, dest, fsc2_config_d):
             config = FSC2_CONFIG_TEMPLATE.format(**fsc2_config_d)
             dest.write(config)
 

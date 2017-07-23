@@ -5,11 +5,37 @@ import unittest
 import time
 import collections
 from gerenuk import simulate
+from gerenuk.utility import StringIO
 from gerenuk.test import TESTS_DATA_DIR
+
+class Fsc2ConfigurationTestCase(unittest.TestCase):
+
+    def test_fsc_config(self):
+        fsc_handler = simulate.Fsc2Handler(
+                name="test-one",
+                fsc2_path="fsc25",
+                working_directory=TESTS_DATA_DIR,
+                is_folded_site_frequency_spectrum=is_folded_site_frequency_spectrum,
+                )
+        fsc2_config_d = {
+                "d0_population_size": 100,
+                "d1_population_size": 100,
+                "d0_sample_size": 100,
+                "div_time" : 100,
+                "num_sites": 100,
+                "recombination_rate": 100,
+                "mutation_rate" : 100,
+                "ti_proportional_bias": 100,
+                }
+        dest = StringIO()
+        fsc_handler._write_parameter_configuration(
+                file=dest,
+                fsc2_config_d=fsc2_config_d):
+        result = dest.getvalue()
 
 class Fsc2SiteFilepathTestCase(unittest.TestCase):
 
-    def get_fsc_handler(self, is_folded_site_frequency_spectrum):
+    def get_fsc_handler(is_folded_site_frequency_spectrum):
         fsc_handler = simulate.Fsc2Handler(
                 name="test-one",
                 fsc2_path="fsc25",
