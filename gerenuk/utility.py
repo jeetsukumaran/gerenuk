@@ -29,6 +29,8 @@
 ##
 ##############################################################################
 
+import shutil
+import errno
 import collections
 import csv
 import locale
@@ -74,67 +76,6 @@ def pre_py34_open(file,
             file,
             mode=mode,
             buffering=buffering)
-
-##############################################################################
-## Command line processing
-
-def parse_fieldname_and_value(labels):
-    if not labels:
-        return collections.OrderedDict()
-    fieldname_value_map = collections.OrderedDict()
-    for label in labels:
-        match = re.match(r"\s*(.*?)\s*:\s*(.*)\s*", label)
-        if not match:
-            raise ValueError("Cannot parse fieldname and label (format required: fieldname:value): {}".format(label))
-        fieldname, value = match.groups(0)
-        fieldname_value_map[fieldname] = value
-    return fieldname_value_map
-
-##############################################################################
-## Process Control/Handling
-
-try:
-    ENCODING = locale.getdefaultlocale()[1]
-except ValueError:
-    ENCODING = None # let default value be assigned below
-
-if ENCODING == None:
-    ENCODING = 'UTF-8'
-
-def bytes_to_text(s):
-    """
-    Converts a byte string (as read from, e.g., standard input)
-    to a text string.
-
-    In Python 3, this is from type ``bytes`` to ``str``.
-    In Python 2, this is, confusingly, from type ``str`` to ``unicode``.
-
-    """
-    s = codecs.decode(s, ENCODING)
-    if sys.hexversion < 0x03000000:
-        s = codecs.encode(s, "utf-8")
-    return s
-
-def communicate_process(p, commands=None, timeout=None):
-    if isinstance(commands, list) or isinstance(commands, tuple):
-        commands = "\n".join(str(c) for c in commands)
-    if commands is not None:
-        commands = str.encode(commands)
-    if timeout is None:
-        stdout, stderr = p.communicate(commands)
-    else:
-        try:
-            stdout, stderr = p.communicate(commands, timeout=timeout)
-        except TypeError as e:
-            if "unexpected keyword argument 'timeout'" in str(e):
-                stdout, stderr = p.communicate(commands)
-            else:
-                raise
-    if stdout is not None:
-        stdout = bytes_to_text(stdout)
-    if stderr is not None:
-        stderr = bytes_to_text(stderr)
-    return stdout, stderr
 
 ##############################################################################
 ## CSV File Handling
@@ -274,6 +215,103 @@ def parse_legacy_configuration(filepath, config_d=None):
                 locus_info[key] = val_type(val)
             config_d["locus_info"].append(locus_info)
     return config_d
+
+##############################################################################
+## Temporary Directory Handling ( [somewhat] replicates 3.2 'TemporaryDirectory')
+
+class TemporaryDirectory(object):
+
+    def __init__(self,
+            suffix="",
+            prefix="",
+            parent_dir=None,
+            ):
+        self.suffix = suffix
+        self.prefix = prefix
+        self.parent_dir = parent_dir
+        self.temp_dir_path = None
+        self.suppress_cleanup = False
+
+    def cleanup(self):
+        try:
+            shutil.rmtree(self.name)
+        except OSError as e:
+            # Reraise unless ENOENT: No such file or directory
+            # (ok if directory has already been deleted)
+            if e.errno != errno.ENOENT:
+                raise
+
+    def __enter__(self):
+        self.temp_dir_path = tempfile.mkdtemp(
+                suffix=self.suffix,
+                prefix=self.prefix,
+                dir=self.parent_dir)
+        return self.temp_dir_path
+
+    def __exit__(self, *args):
+        if not self.suppress_cleanup:
+            self.cleanup()
+
+##############################################################################
+## Process Control/Handling
+
+try:
+    ENCODING = locale.getdefaultlocale()[1]
+except ValueError:
+    ENCODING = None # let default value be assigned below
+
+if ENCODING == None:
+    ENCODING = 'UTF-8'
+
+def bytes_to_text(s):
+    """
+    Converts a byte string (as read from, e.g., standard input)
+    to a text string.
+
+    In Python 3, this is from type ``bytes`` to ``str``.
+    In Python 2, this is, confusingly, from type ``str`` to ``unicode``.
+
+    """
+    s = codecs.decode(s, ENCODING)
+    if sys.hexversion < 0x03000000:
+        s = codecs.encode(s, "utf-8")
+    return s
+
+def communicate_process(p, commands=None, timeout=None):
+    if isinstance(commands, list) or isinstance(commands, tuple):
+        commands = "\n".join(str(c) for c in commands)
+    if commands is not None:
+        commands = str.encode(commands)
+    if timeout is None:
+        stdout, stderr = p.communicate(commands)
+    else:
+        try:
+            stdout, stderr = p.communicate(commands, timeout=timeout)
+        except TypeError as e:
+            if "unexpected keyword argument 'timeout'" in str(e):
+                stdout, stderr = p.communicate(commands)
+            else:
+                raise
+    if stdout is not None:
+        stdout = bytes_to_text(stdout)
+    if stderr is not None:
+        stderr = bytes_to_text(stderr)
+    return stdout, stderr
+
+##############################################################################
+## Command line processing
+
+def parse_fieldname_and_value(labels):
+    if not labels:
+        return collections.OrderedDict()
+    fieldname_value_map = collections.OrderedDict()
+    for label in labels:
+        match = re.match(r"\s*(.*?)\s*:\s*(.*)\s*", label)
+        if not match:
+            raise ValueError("Cannot parse fieldname and label (format required: fieldname:value): {}".format(label))
+        fieldname, value = match.groups(0)
+        fieldname_value_map[fieldname] = value
+    return fieldname_value_map
 
 ##############################################################################
 ## Logging

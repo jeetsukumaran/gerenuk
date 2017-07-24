@@ -45,11 +45,11 @@ def main():
         default=None,
         metavar='OUTPUT-FILE-PREFIX',
         help="Prefix for output files (default: same as simulation name)').")
-    output_options.add_argument('-w', '--working-directory',
+    output_options.add_argument('-w', '--working-directory-parent',
         action='store',
         type=str,
         default=None,
-        help="Directory for temporary files (default: '%(default)s').")
+        help="Directory within which to create temporary directories and files.")
     output_options.add_argument("-l", "--labels",
             action="append",
             help="Labels to append to output (in format <FIELD-NAME>:value;)")
@@ -111,10 +111,6 @@ def main():
         config_d["output_prefix"] = os.path.splitext(os.path.basename(args.model_file))[0]
     else:
         config_d["output_prefix"] = args.output_prefix
-    if args.working_directory is not None:
-        config_d["working_directory"] = args.working_directory
-    else:
-        config_d["working_directory"] = "work" # TODO! use tempfile to get this
     config_d["logging_frequency"] = args.log_frequency
     config_d["fsc2_path"] = args.fsc2_path
     config_d["file_logging_level"] = args.file_logging_level
@@ -125,30 +121,32 @@ def main():
     config_d["stat_label_prefix"] = args.summary_stats_label_prefix
     config_d["supplemental_labels"] = utility.parse_fieldname_and_value(args.labels)
     config_d["is_include_model_id_field"] = args.include_model_id_field
-    gs = simulate.GerenukSimulator(
-            config_d=config_d,
-            num_processes=args.num_processes,
-            is_verbose_setup=False)
-    filepath = config_d["output_prefix"] + ".sumstats.csv"
-    dest = utility.open_destput_file_for_csv_writer(filepath=filepath, is_append=args.append)
-    if args.append or args.no_write_header:
-        is_write_header = False
-    else:
-        is_write_header = True
-    with dest:
-        writer = utility.get_csv_writer(dest=dest)
-        try:
-            results = gs.execute(
-                    nreps=args.num_reps,
-                    results_csv_writer=writer,
-                    results_store=None,
-                    is_write_header=is_write_header,
-                    column_separator=",")
-        except Exception as e:
-            sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
-                "  ".join(traceback.format_tb(sys.exc_info()[2])),
-                e))
-            sys.exit(1)
+    with utility.TemporaryDirectory(prefix="gerenuk", parent_dir=args.working_directory_parent) as working_directory:
+        config_d["working_directory"] = working_directory
+        gs = simulate.GerenukSimulator(
+                config_d=config_d,
+                num_processes=args.num_processes,
+                is_verbose_setup=True)
+        filepath = config_d["output_prefix"] + ".sumstats.csv"
+        dest = utility.open_destput_file_for_csv_writer(filepath=filepath, is_append=args.append)
+        if args.append or args.no_write_header:
+            is_write_header = False
+        else:
+            is_write_header = True
+        with dest:
+            writer = utility.get_csv_writer(dest=dest)
+            try:
+                results = gs.execute(
+                        nreps=args.num_reps,
+                        results_csv_writer=writer,
+                        results_store=None,
+                        is_write_header=is_write_header,
+                        column_separator=",")
+            except Exception as e:
+                sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
+                    "  ".join(traceback.format_tb(sys.exc_info()[2])),
+                    e))
+                sys.exit(1)
 
 if __name__ == "__main__":
     main()

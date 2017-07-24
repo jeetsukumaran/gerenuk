@@ -792,7 +792,7 @@ class GerenukSimulator(object):
                     ("Multiple processors ({num_cpus}) available:"
                     " consider using the '-M' or '-m' options to"
                     " parallelize processing of trees"
-                    ).format(num_cpus=num_cpus))
+                    ).format(num_cpus=self.num_cpus))
             self.num_processes = 1
         else:
             self.num_processes = num_processes
@@ -844,6 +844,8 @@ class GerenukSimulator(object):
                 raise TypeError("Cannot specify both 'rng' and 'random_seed'")
             if self.is_verbose_setup:
                 self.run_logger.info("Using existing random number generator")
+        if self.is_verbose_setup:
+            self.run_logger.info("Working directory: '{}'".format(self.working_directory))
         self.is_debug_mode = config_d.pop("debug_mode", False)
         if self.is_verbose_setup and self.is_debug_mode:
             self.run_logger.info("Running in DEBUG mode")
