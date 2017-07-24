@@ -37,6 +37,7 @@ import sys
 import os
 import logging
 import tempfile
+import re
 
 ##############################################################################
 ## StringIO
@@ -167,6 +168,96 @@ def write_dict_csv(list_of_dicts, filepath, fieldnames=None, is_no_header_row=Fa
 
 ##############################################################################
 ## Configuration File Handling
+
+def parse_legacy_configuration(filepath, config_d=None):
+    recognized_preamble_keys = set([
+            "concentrationshape",
+            "thetashape",
+            "thetascale",
+            "ancestralthetashape",
+            "ancestralthetascale",
+            "thetaparameters",
+            "taushape",
+            "tauscale",
+            "timeinsubspersite",
+            "bottleproportionshapea",
+            "bottleproportionshapeb",
+            "bottleproportionshared",
+            "migrationshape",
+            "migrationscale",
+            "numtauclasses",
+            ])
+    sample_table_keys = [
+            ("taxon_label", str),
+            ("locus_label", str),
+            ("ploidy_factor", float),
+            ("mutation_rate_factor", float),
+            ("num_genes_deme0", int),
+            ("num_genes_deme1", int),
+            ("ti_tv_rate_ratio", float),
+            ("num_sites", int),
+            ("freq_a", float),
+            ("freq_c", float),
+            ("freq_g", float),
+            ("alignment_filepath", str),
+            ]
+    sample_table_begin_pattern = re.compile(r"^\s*BEGIN\s+SAMPLE_TBL\s*$", re.I)
+    sample_table_end_pattern = re.compile(r"^\s*END\s+SAMPLE_TBL\s*$", re.I)
+    sample_table_splitter = re.compile("\s+", re.I)
+    if config_d is None:
+        config_d = CaseInsensitiveDict()
+    config_d["params"] = {}
+    config_d["locus_info"] = []
+    section = "preamble"
+    src = open(filepath)
+    for row_idx, row in enumerate(src):
+        row = row.strip()
+        if not row:
+            continue
+        comment_start_idx = row.find("#")
+        if section == "sample-table" and comment_start_idx > 0:
+            raise ValueError("Configuration file '{}', row {}: sample table section cannot contain mid-row comment".format(
+                filepath,
+                row_idx+1))
+        if comment_start_idx > -1:
+            row = row[0:comment_start_idx]
+        row = row.strip()
+        if not row:
+            continue
+        if section == "preamble":
+            if sample_table_begin_pattern.match(row):
+                section = "sample-table"
+                continue
+            row_parts = row.split("=")
+            if len(row_parts) != 2:
+                raise ValueError("Configuration file '{}', row {}: sample table section cannot contain mid-row comment".format(
+                    filepath,
+                    row_idx+1))
+            key = row_parts[0].strip()
+            case_normalized_key = key.lower()
+            if case_normalized_key not in recognized_preamble_keys:
+                raise ValueError("Configuration file '{}', row {}: unrecognized preamble key '{}'".format(
+                    filepath,
+                    row_idx+1,
+                    key
+                    ))
+            config_d["params"][key] = float(row_parts[1])
+        else:
+            if sample_table_end_pattern.match(row):
+                continue
+            cols = sample_table_splitter.split(row)
+            locus_info = {}
+            if len(cols) != len(sample_table_keys):
+                raise ValueError("Configuration file '{}', row {}: expecting {} columns but only found {}".format(
+                    filepath,
+                    row_idx+1,
+                    len(sample_table_keys),
+                    len(cols),
+                    ))
+            for (key, val_type), val in zip(sample_table_keys, cols):
+                locus_info[key] = val_type(val)
+            config_d["locus_info"].append(locus_info)
+    return config_d
 
 ##############################################################################
 ## Logging
