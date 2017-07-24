@@ -234,7 +234,7 @@ class TemporaryDirectory(object):
 
     def cleanup(self):
         try:
-            shutil.rmtree(self.name)
+            shutil.rmtree(self.temp_dir_path)
         except OSError as e:
             # Reraise unless ENOENT: No such file or directory
             # (ok if directory has already been deleted)
