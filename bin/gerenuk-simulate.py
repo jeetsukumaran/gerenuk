@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+import traceback
 from gerenuk import simulate
 from gerenuk import utility
 
@@ -17,7 +18,7 @@ def main():
             help="Path to file defining the model.")
 
     simulator_options = parser.add_argument_group("Simulation Options")
-    simulator_options.add_argument("-n", "--nreps",
+    simulator_options.add_argument("-n", "--num-reps",
             type=int,
             default=10,
             help="Number of replicates (default: %(default)s).")
@@ -77,6 +78,7 @@ def main():
     fsc2_options = parser.add_argument_group("FastSimCoal2 Options")
     fsc2_options.add_argument("--fsc2-path",
             metavar="FSC2-PATH",
+            default="fsc25",
             help="Path to FastsimCoal2 application (default: %(default)s).")
 
     args = parser.parse_args()
@@ -87,7 +89,10 @@ def main():
             config_d=config_d)
     config_d["name"] = args.name
     config_d["output_prefix"] = args.output_prefix
-    config_d["working_directory"] = args.working_directory
+    if args.working_directory is not None:
+        config_d["working_directory"] = args.working_directory
+    else:
+        config_d["working_directory"] = "." # TODO! use tempfile to get this
     config_d["logging_frequency"] = args.log_frequency
     config_d["fsc2_path"] = args.fsc2_path
     config_d["file_logging_level"] = args.file_logging_level
@@ -100,6 +105,22 @@ def main():
             config_d=config_d,
             num_processes=args.num_processes,
             is_verbose_setup=False)
+    filepath = args.output_prefix + ".sumstats.csv"
+    dest = utility.open_destput_file_for_csv_writer(filepath=filepath)
+    with dest:
+        writer = utility.get_csv_writer(dest=dest)
+        try:
+            results = gs.execute(
+                    nreps=args.num_reps,
+                    results_csv_writer=writer,
+                    results_store=None,
+                    is_write_header=True,
+                    column_separator=",")
+        except Exception as e:
+            sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
+                "  ".join(traceback.format_tb(sys.exc_info()[2])),
+                e))
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
