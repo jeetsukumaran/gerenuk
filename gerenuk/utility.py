@@ -46,6 +46,35 @@ except ImportError:
     from io import StringIO # Python 3
 
 ##############################################################################
+## Opening files
+
+def pre_py34_open(file,
+        mode='r',
+        buffering=-1,
+        encoding=None,
+        errors=None,
+        newline=None,
+        closefd=True,
+        opener=None):
+    if encoding is not None:
+        raise NotImplementedError
+    if errors is not None:
+        raise NotImplementedError
+    if newline is None:
+        if mode.startswith("r"):
+            mode = mode + "U"
+    else:
+        raise NotImplementedError
+    if closefd is not True:
+        raise NotImplementedError
+    if opener is not None:
+        raise NotImplementedError
+    return open(
+            file,
+            mode=mode,
+            buffering=buffering)
+
+##############################################################################
 ## Process Control/Handling
 
 try:
@@ -91,6 +120,9 @@ def communicate_process(p, commands=None, timeout=None):
         stderr = bytes_to_text(stderr)
     return stdout, stderr
 
+##############################################################################
+## CSV File Handling
+
 def open_destput_file_for_csv_writer(filepath, is_append=False):
     if filepath is None or filepath == "-":
         dest = sys.stdout
@@ -132,6 +164,9 @@ def write_dict_csv(list_of_dicts, filepath, fieldnames=None, is_no_header_row=Fa
         if not is_no_header_row:
             writer.writeheader()
         writer.writerows(list_of_dicts)
+
+##############################################################################
+## Configuration File Handling
 
 ##############################################################################
 ## Logging
