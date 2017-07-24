@@ -811,6 +811,7 @@ class GerenukSimulator(object):
                     name="gerenuk",
                     stderr_logging_level=config_d.pop("standard_error_logging_level", "info"),
                     log_to_file=config_d.pop("log_to_file", True),
+                    log_to_stderr=config_d.pop("log_to_stderr", True),
                     log_path=self.output_prefix + ".log",
                     file_logging_level=config_d.pop("file_logging_level", "info"),
                     )
@@ -848,7 +849,7 @@ class GerenukSimulator(object):
             raise ValueError("Missing 'params' entry in configuration")
         params_d = config_d.pop("params")
         if "locus_info" not in config_d:
-            raise ValueError("Mising 'locus_info' entry in configuration")
+            raise ValueError("Missing 'locus_info' entry in configuration")
         locus_info = config_d.pop("locus_info")
         self.model = GerenukSimulationModel(params_d=params_d, locus_info=locus_info,)
         if config_d:
