@@ -170,22 +170,23 @@ def write_dict_csv(list_of_dicts, filepath, fieldnames=None, is_no_header_row=Fa
 ## Configuration File Handling
 
 def parse_legacy_configuration(filepath, config_d=None):
-    recognized_preamble_keys = set([
-            "concentrationshape",
-            "thetashape",
-            "thetascale",
-            "ancestralthetashape",
-            "ancestralthetascale",
-            "thetaparameters",
-            "taushape",
-            "tauscale",
-            "timeinsubspersite",
-            "bottleproportionshapea",
-            "bottleproportionshapeb",
-            "bottleproportionshared",
-            "migrationshape",
-            "migrationscale",
-            "numtauclasses",
+    recognized_preamble_keys = collections.OrderedDict([
+            ("concentrationshape", float),
+            ("concentrationscale", float),
+            ("thetashape", float),
+            ("thetascale", float),
+            ("ancestralthetashape", float),
+            ("ancestralthetascale", float),
+            ("thetaparameters", str),
+            ("taushape", float),
+            ("tauscale", float),
+            ("timeinsubspersite", float),
+            ("bottleproportionshapea", float),
+            ("bottleproportionshapeb", float),
+            ("bottleproportionshared", float),
+            ("migrationshape", float),
+            ("migrationscale", float),
+            ("numtauclasses", float),
             ])
     sample_table_keys = [
             ("taxon_label", str),
@@ -241,7 +242,7 @@ def parse_legacy_configuration(filepath, config_d=None):
                     row_idx+1,
                     key
                     ))
-            config_d["params"][key] = float(row_parts[1])
+            config_d["params"][key] = recognized_preamble_keys[case_normalized_key](row_parts[1].strip())
         else:
             if sample_table_end_pattern.match(row):
                 continue

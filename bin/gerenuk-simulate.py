@@ -82,6 +82,9 @@ def main():
     args = parser.parse_args()
 
     config_d = {}
+    utility.parse_legacy_configuration(
+            filepath=args.model_file,
+            config_d=config_d)
     config_d["name"] = args.name
     config_d["output_prefix"] = args.output_prefix
     config_d["working_directory"] = args.working_directory
@@ -93,9 +96,6 @@ def main():
     # config_d["log_to_stderr"] = args.log_to_stderr
     config_d["site_frequency_spectrum_type"] = args.site_frequency_spectrum_type
     config_d["stat_label_prefix"] = args.summary_stats_label_prefix
-    utility.parse_legacy_configuration(
-            filepath=args.model_file,
-            config_d=config_d)
     gs = simulate.GerenukSimulator(
             config_d=config_d,
             num_processes=args.num_processes,

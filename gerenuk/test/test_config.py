@@ -14,6 +14,7 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
         self.assertIn("params", config_d)
         expected_params = {
             "concentrationShape": 1000.0,
+            "concentrationScale": 0.00437,
             "thetaShape": 4.0,
             "thetaScale": 0.001,
             "ancestralThetaShape": 0,
