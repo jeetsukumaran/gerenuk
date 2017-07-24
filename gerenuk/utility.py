@@ -225,12 +225,13 @@ class TemporaryDirectory(object):
             suffix="",
             prefix="",
             parent_dir=None,
+            is_suppress_cleanup=False
             ):
         self.suffix = suffix
         self.prefix = prefix
         self.parent_dir = parent_dir
         self.temp_dir_path = None
-        self.suppress_cleanup = False
+        self.is_suppress_cleanup = is_suppress_cleanup
 
     def cleanup(self):
         try:
@@ -242,6 +243,11 @@ class TemporaryDirectory(object):
                 raise
 
     def __enter__(self):
+        if self.parent_dir is not None and self.parent_dir:
+            try:
+                os.makedirs(self.parent_dir)
+            except OSError as e:
+                pass
         self.temp_dir_path = tempfile.mkdtemp(
                 suffix=self.suffix,
                 prefix=self.prefix,
@@ -249,7 +255,7 @@ class TemporaryDirectory(object):
         return self.temp_dir_path
 
     def __exit__(self, *args):
-        if not self.suppress_cleanup:
+        if not self.is_suppress_cleanup:
             self.cleanup()
 
 ##############################################################################

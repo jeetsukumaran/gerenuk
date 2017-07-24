@@ -86,6 +86,10 @@ def main():
     run_options.add_argument("--stderr-logging-level",
             default=None,
             help="Message level threshold for screen logs.")
+    run_options.add_argument("--no-cleanup",
+            action="store_true",
+            default=False,
+            help="Do not clean-up temporary files.")
     run_options.add_argument("--debug-mode",
             action="store_true",
             default=False,
@@ -121,7 +125,10 @@ def main():
     config_d["stat_label_prefix"] = args.summary_stats_label_prefix
     config_d["supplemental_labels"] = utility.parse_fieldname_and_value(args.labels)
     config_d["is_include_model_id_field"] = args.include_model_id_field
-    with utility.TemporaryDirectory(prefix="gerenuk", parent_dir=args.working_directory_parent) as working_directory:
+    with utility.TemporaryDirectory(
+            prefix="gerenuk-{}.".format(config_d["name"]),
+            parent_dir=args.working_directory_parent,
+            is_suppress_cleanup=args.no_cleanup) as working_directory:
         config_d["working_directory"] = working_directory
         gs = simulate.GerenukSimulator(
                 config_d=config_d,
