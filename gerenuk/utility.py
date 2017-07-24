@@ -101,14 +101,12 @@ def open_destput_file_for_csv_writer(filepath, is_append=False):
     return dest
 
 def get_csv_writer(
-        filepath,
+        dest,
         fieldnames=None,
         delimiter=",",
-        is_append=False,
         ):
-    dest = open_destput_file_for_csv_writer(
-            filepath=filepath,
-            is_append=is_append)
+    if isinstance(dest, str):
+        dest = open_destput_file_for_csv_writer(filepath=dest)
     writer = csv.DictWriter(
             dest,
             fieldnames=fieldnames,

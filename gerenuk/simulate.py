@@ -859,7 +859,7 @@ class GerenukSimulator(object):
             results_csv_writer=None,
             results_store=None,
             is_write_header=True,
-            column_separator=","
+            column_separator=",",
             ):
         # load up queue
         self.run_logger.info("Creating work queue")
@@ -987,16 +987,18 @@ if __name__ == "__main__":
             config_d=config_d,
             num_processes=3,
             is_verbose_setup=True)
-    writer = utility.get_csv_writer(filepath="-")
-    try:
-        results = gs.execute(
-                nreps=5,
-                results_csv_writer=writer,
-                results_store=None,
-                is_write_header=True,
-                column_separator=",")
-    except Exception as e:
-        sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
-            "  ".join(traceback.format_tb(sys.exc_info()[2])),
-            e))
-        sys.exit(1)
+    dest = utility.open_destput_file_for_csv_writer(filepath="-")
+    with dest:
+        writer = utility.get_csv_writer(dest=dest)
+        try:
+            results = gs.execute(
+                    nreps=5,
+                    results_csv_writer=writer,
+                    results_store=None,
+                    is_write_header=True,
+                    column_separator=",")
+        except Exception as e:
+            sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
+                "  ".join(traceback.format_tb(sys.exc_info()[2])),
+                e))
+            sys.exit(1)
