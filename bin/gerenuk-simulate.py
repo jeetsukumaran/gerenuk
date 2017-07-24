@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 import traceback
+import time
 from gerenuk import simulate
 from gerenuk import utility
 
@@ -34,16 +35,16 @@ def main():
     output_options.add_argument('--name',
         action='store',
         type=str,
-        default='gerenuk',
+        default=None,
         metavar='SIMULATION-NAME',
-        help="Identifier for this simulation run (default: '%(default)s').")
+        help="Identifier for this simulation run (default: timestamp).")
     output_options.add_argument('-o', '--output-prefix',
         action='store',
         dest='output_prefix',
         type=str,
-        default='gerenuk',
+        default=None,
         metavar='OUTPUT-FILE-PREFIX',
-        help="Prefix for output files (default: '%(default)s').")
+        help="Prefix for output files (default: same as simulation name)').")
     output_options.add_argument('-w', '--working-directory',
         action='store',
         type=str,
@@ -102,12 +103,18 @@ def main():
     utility.parse_legacy_configuration(
             filepath=args.model_file,
             config_d=config_d)
-    config_d["name"] = args.name
-    config_d["output_prefix"] = args.output_prefix
+    if args.name is None:
+        config_d["name"] = time.strftime("%Y%m%d%H%M%S")
+    else:
+        config_d["name"] = args.name
+    if args.output_prefix is None:
+        config_d["output_prefix"] = os.path.splitext(os.path.basename(args.model_file))[0]
+    else:
+        config_d["output_prefix"] = args.output_prefix
     if args.working_directory is not None:
         config_d["working_directory"] = args.working_directory
     else:
-        config_d["working_directory"] = "." # TODO! use tempfile to get this
+        config_d["working_directory"] = "work" # TODO! use tempfile to get this
     config_d["logging_frequency"] = args.log_frequency
     config_d["fsc2_path"] = args.fsc2_path
     config_d["file_logging_level"] = args.file_logging_level
@@ -122,7 +129,7 @@ def main():
             config_d=config_d,
             num_processes=args.num_processes,
             is_verbose_setup=False)
-    filepath = args.output_prefix + ".sumstats.csv"
+    filepath = config_d["output_prefix"] + ".sumstats.csv"
     dest = utility.open_destput_file_for_csv_writer(filepath=filepath, is_append=args.append)
     if args.append or args.no_write_header:
         is_write_header = False
