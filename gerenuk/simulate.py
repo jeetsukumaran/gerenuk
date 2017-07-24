@@ -872,7 +872,6 @@ class GerenukSimulator(object):
             results_csv_writer=None,
             results_store=None,
             is_write_header=True,
-            column_separator=",",
             ):
         # load up queue
         self.run_logger.info("Creating work queue")
@@ -936,83 +935,3 @@ class GerenukSimulator(object):
         self.run_logger.info("All {} worker processes terminated".format(self.num_processes))
         return results_store
 
-if __name__ == "__main__":
-    config_d = {
-            "name": "test",
-            "site_frequency_spectrum_type": "folded",
-            "params": {
-                "concentrationShape": 10,
-                "concentrationScale": 0.3766,
-                "thetaShape": 1,
-                "thetaScale": 0.03,
-                # "popsizeShape": 2,
-                # "popsizeScale": 1E7,
-                # "mutRateShape": 2,
-                # "mutRateScale": 2E-8,
-                "ancestralThetaShape": 0,
-                "ancestralThetaScale": 0,
-                "thetaParameters": "012",
-                "tauShape": 1.0,
-                "tauScale": 0.007,
-                "timeInSubsPerSite": 1,
-                "bottleProportionShapeA": 0,
-                "bottleProportionShapeB": 0,
-                "bottleProportionShared": 0,
-                "migrationShape": 0,
-                "migrationScale": 0,
-                "numTauClasses": 0
-                },
-            "locus_info": [
-                {'taxon_label': 'S1',
-                        'locus_label': 'LocusS1M1',
-                        'ploidy_factor': 1,
-                        'mutation_rate_factor': 1,
-                        'num_genes_deme0': 5,
-                        'num_genes_deme1': 5,
-                        'ti_tv_rate_ratio': 3,
-                        'num_sites': 80,
-                        'freq_a': 0.263,
-                        'freq_c': 0.258,
-                        'freq_g': 0.255,
-                        'alignment_filepath': 'S1M1.fasta',
-                        },
-
-                {'taxon_label': 'S1',
-                        'locus_label': 'LocusS1M2',
-                        'ploidy_factor': 1,
-                        'mutation_rate_factor': 1,
-                        'num_genes_deme0': 5,
-                        'num_genes_deme1': 5,
-                        'ti_tv_rate_ratio': 3,
-                        'num_sites': 80,
-                        'freq_a': 0.149,
-                        'freq_c': 0.146,
-                        'freq_g': 0.226,
-                        'alignment_filepath': 'S1M2.fasta',
-                        },
-
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 1.2, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_g': 0.175, 'alignment_filepath': 'S2M2.fasta', },
-                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', },
-                {'taxon_label': 'S3', 'locus_label': 'LocusS3M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 1.0, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M2.fasta', }
-                ],
-            }
-    gs = GerenukSimulator(
-            config_d=config_d,
-            num_processes=3,
-            is_verbose_setup=True)
-    dest = utility.open_destput_file_for_csv_writer(filepath="-")
-    with dest:
-        writer = utility.get_csv_writer(dest=dest)
-        try:
-            results = gs.execute(
-                    nreps=5,
-                    results_csv_writer=writer,
-                    results_store=None,
-                    is_write_header=True,
-                    column_separator=",")
-        except Exception as e:
-            sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
-                "  ".join(traceback.format_tb(sys.exc_info()[2])),
-                e))
-            sys.exit(1)

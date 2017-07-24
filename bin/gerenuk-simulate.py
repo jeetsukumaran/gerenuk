@@ -53,10 +53,10 @@ def main():
     output_options.add_argument("-l", "--labels",
             action="append",
             help="Labels to append to output (in format <FIELD-NAME>:value;)")
-    output_options.add_argument( "--append",
-            action="store_true",
-            default=False,
-            help="Append instead of overwriting output file(s).")
+    output_options.add_argument('--field-delimiter',
+        type=str,
+        default='\t',
+        help="Delimiter string separator fields in output (default: <TAB>').")
     output_options.add_argument('--summary-stats-label-prefix',
         type=str,
         default='stat',
@@ -66,6 +66,10 @@ def main():
             action="store_true",
             default=False,
             help="Include a 'model.id' field (with same value as 'param.divTimeModel' field) in output.")
+    output_options.add_argument( "--append",
+            action="store_true",
+            default=False,
+            help="Append instead of overwriting output file(s).")
     output_options.add_argument( "--no-write-header",
             action="store_true",
             default=False,
@@ -134,21 +138,24 @@ def main():
                 config_d=config_d,
                 num_processes=args.num_processes,
                 is_verbose_setup=True)
-        filepath = config_d["output_prefix"] + ".sumstats.csv"
-        dest = utility.open_destput_file_for_csv_writer(filepath=filepath, is_append=args.append)
+        filepath = config_d["output_prefix"] + ".sumstats.tsv"
+        dest = utility.open_destput_file_for_csv_writer(
+                filepath=filepath,
+                is_append=args.append)
         if args.append or args.no_write_header:
             is_write_header = False
         else:
             is_write_header = True
         with dest:
-            writer = utility.get_csv_writer(dest=dest)
+            writer = utility.get_csv_writer(
+                    dest=dest,
+                    delimiter=args.field_delimiter)
             try:
                 results = gs.execute(
                         nreps=args.num_reps,
                         results_csv_writer=writer,
                         results_store=None,
-                        is_write_header=is_write_header,
-                        column_separator=",")
+                        is_write_header=is_write_header)
             except Exception as e:
                 sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
                     "  ".join(traceback.format_tb(sys.exc_info()[2])),
