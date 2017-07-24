@@ -8,6 +8,7 @@ import collections
 from gerenuk import simulate
 from gerenuk.utility import StringIO
 from gerenuk.test import TESTS_DATA_DIR
+FSC_DATA_DIR = os.path.join(TESTS_DATA_DIR, "fsc-results")
 
 class Fsc2ConfigurationTestCase(unittest.TestCase):
 
@@ -15,7 +16,7 @@ class Fsc2ConfigurationTestCase(unittest.TestCase):
         fsc_handler = simulate.Fsc2Handler(
                 name="test-one",
                 fsc2_path="fsc25",
-                working_directory=TESTS_DATA_DIR,
+                working_directory=FSC_DATA_DIR,
                 is_folded_site_frequency_spectrum=True,
                 )
         fsc2_config_d = {
@@ -69,7 +70,7 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
         fsc_handler = simulate.Fsc2Handler(
                 name="test-one",
                 fsc2_path="fsc25",
-                working_directory=TESTS_DATA_DIR,
+                working_directory=FSC_DATA_DIR,
                 is_folded_site_frequency_spectrum=is_folded_site_frequency_spectrum,
                 )
         return fsc_handler
@@ -81,7 +82,7 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
     def test_results_dirpath(self):
         fsc_handler = self.get_fsc_handler(True)
         self.assertEqual(fsc_handler.results_dirpath,
-                os.path.join(TESTS_DATA_DIR, "test-one"))
+                os.path.join(FSC_DATA_DIR, "test-one"))
 
     def test_deme0_derived_allele_frequency_filepath(self):
         for folded, expected in (
@@ -90,7 +91,7 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
                 ):
             fsc_handler = self.get_fsc_handler(folded)
             self.assertEqual(fsc_handler.deme0_derived_allele_frequency_filepath,
-                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_{}AFpop0.obs".format(expected)))
+                    os.path.join(FSC_DATA_DIR, "test-one", "test-one_{}AFpop0.obs".format(expected)))
 
     def test_deme0_derived_allele_frequency_filepath(self):
         for folded, expected in (
@@ -99,7 +100,7 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
                 ):
             fsc_handler = self.get_fsc_handler(folded)
             self.assertEqual(fsc_handler.deme0_derived_allele_frequency_filepath,
-                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_{}AFpop0.obs".format(expected)))
+                    os.path.join(FSC_DATA_DIR, "test-one", "test-one_{}AFpop0.obs".format(expected)))
 
     def test_deme1_derived_allele_frequency_filepath(self):
         for folded, expected in (
@@ -108,7 +109,7 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
                 ):
             fsc_handler = self.get_fsc_handler(folded)
             self.assertEqual(fsc_handler.deme1_derived_allele_frequency_filepath,
-                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_{}AFpop1.obs".format(expected)))
+                    os.path.join(FSC_DATA_DIR, "test-one", "test-one_{}AFpop1.obs".format(expected)))
 
     def test_joint_derived_allele_frequency_filepath(self):
         for folded, expected in (
@@ -117,7 +118,7 @@ class Fsc2SiteFilepathTestCase(unittest.TestCase):
                 ):
             fsc_handler = self.get_fsc_handler(folded)
             self.assertEqual(fsc_handler.joint_derived_allele_frequency_filepath,
-                    os.path.join(TESTS_DATA_DIR, "test-one", "test-one_joint{}AFpop1_0.obs".format(expected)))
+                    os.path.join(FSC_DATA_DIR, "test-one", "test-one_joint{}AFpop1_0.obs".format(expected)))
 
 class Fsc2DataExtractionTestCase(unittest.TestCase):
 
@@ -125,7 +126,7 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
         self.fsc = simulate.Fsc2Handler(
                 name="test-one",
                 fsc2_path="fsc25",
-                working_directory=TESTS_DATA_DIR,
+                working_directory=FSC_DATA_DIR,
                 is_folded_site_frequency_spectrum=True,
                 )
 
@@ -140,7 +141,7 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
             field_name_prefix = "stats.testv{}".format(fidx+1)
             data = collections.OrderedDict()
             self.fsc._parse_deme_derived_allele_frequencies(
-                    filepath=os.path.join(TESTS_DATA_DIR, "test-one", fixture["filename"]),
+                    filepath=os.path.join(FSC_DATA_DIR, "test-one", fixture["filename"]),
                     field_name_prefix=field_name_prefix,
                     results_d=data)
             expected_values = fixture["expected_values"]
@@ -167,7 +168,7 @@ class Fsc2DataExtractionTestCase(unittest.TestCase):
             field_name_prefix = "stats.testv{}".format(fidx+1)
             data = collections.OrderedDict()
             self.fsc._parse_joint_derived_allele_frequencies(
-                    filepath=os.path.join(TESTS_DATA_DIR, "test-one", fixture["filename"]),
+                    filepath=os.path.join(FSC_DATA_DIR, "test-one", fixture["filename"]),
                     field_name_prefix=field_name_prefix,
                     results_d=data)
             expected_values = fixture["expected_values"]

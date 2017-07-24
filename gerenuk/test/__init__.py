@@ -34,7 +34,7 @@ import os
 try:
     import pkg_resources
     TESTS_DIR = pkg_resources.resource_filename("gerenuk", "test")
-    TESTS_DATA_DIR = pkg_resources.resource_filename("gerenuk", os.path.join("test", "data", "fsc-results"))
+    TESTS_DATA_DIR = pkg_resources.resource_filename("gerenuk", os.path.join("test", "data",))
     APPLICATIONS_DIR = pkg_resources.resource_filename("gerenuk", os.path.join(os.pardir, "applications"))
 except:
     raise
