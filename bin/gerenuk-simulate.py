@@ -25,6 +25,10 @@ def main():
     simulator_options.add_argument("-z", "--random-seed",
             default=None,
             help="Seed for random number generator engine.")
+    simulator_options.add_argument("-s", "--site-frequency-spectrum-type",
+            choices=["folded", "unfolded"],
+            default="folded",
+            help="Type of site frequency spectrum to generate, 'folded' or 'unfolded' (default: %(default)s).")
 
     output_options = parser.add_argument_group("Output Options")
     output_options.add_argument('--name',
@@ -45,15 +49,26 @@ def main():
         type=str,
         default=None,
         help="Directory for temporary files (default: '%(default)s').")
-    output_options.add_argument("-s", "--site-frequency-spectrum-type",
-            choices=["folded", "unfolded"],
-            default="folded",
-            help="Type of site frequency spectrum, 'folded' or 'unfolded' (default: %(default)s).")
+    output_options.add_argument("-l", "--labels",
+            action="append",
+            help="Labels to append to output (in format <FIELD-NAME>:value;)")
+    output_options.add_argument( "--append",
+            action="store_true",
+            default=False,
+            help="Append instead of overwriting output file(s).")
     output_options.add_argument('--summary-stats-label-prefix',
         type=str,
         default='stat',
         metavar='PREFIX',
         help="Prefix for field labels for summary statistics (default: '%(default)s').")
+    output_options.add_argument( "--include-model-id-field",
+            action="store_true",
+            default=False,
+            help="Include a 'model.id' field (with same value as 'param.divTimeModel' field) in output.")
+    output_options.add_argument( "--no-write-header",
+            action="store_true",
+            default=False,
+            help="Do not writer header row.")
 
     run_options = parser.add_argument_group("Run Options")
     run_options.add_argument("-m", "--num-processes",
@@ -101,12 +116,18 @@ def main():
     # config_d["log_to_stderr"] = args.log_to_stderr
     config_d["site_frequency_spectrum_type"] = args.site_frequency_spectrum_type
     config_d["stat_label_prefix"] = args.summary_stats_label_prefix
+    config_d["supplemental_labels"] = utility.parse_fieldname_and_value(args.labels)
+    config_d["is_include_model_id_field"] = args.include_model_id_field
     gs = simulate.GerenukSimulator(
             config_d=config_d,
             num_processes=args.num_processes,
             is_verbose_setup=False)
     filepath = args.output_prefix + ".sumstats.csv"
-    dest = utility.open_destput_file_for_csv_writer(filepath=filepath)
+    dest = utility.open_destput_file_for_csv_writer(filepath=filepath, is_append=args.append)
+    if args.append or args.no_write_header:
+        is_write_header = False
+    else:
+        is_write_header = True
     with dest:
         writer = utility.get_csv_writer(dest=dest)
         try:
@@ -114,7 +135,7 @@ def main():
                     nreps=args.num_reps,
                     results_csv_writer=writer,
                     results_store=None,
-                    is_write_header=True,
+                    is_write_header=is_write_header,
                     column_separator=",")
         except Exception as e:
             sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(

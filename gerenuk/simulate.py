@@ -342,7 +342,7 @@ class GerenukSimulationModel(object):
         ## div time
         concentration_v = rng.gammavariate(*self.prior_concentration)
         params["param.divTimeModel"] = "NA" # initialize here, so first column
-        params["param.concentration"] = concentration_v
+        # params["param.concentration"] = concentration_v
         groups = sample_partition(
                 number_of_elements=self.num_lineage_pairs,
                 scaling_parameter=concentration_v, # sample from prior
@@ -664,6 +664,7 @@ class SimulationWorker(multiprocessing.Process):
             is_folded_site_frequency_spectrum,
             stat_label_prefix,
             is_include_model_id_field,
+            supplemental_labels,
             debug_mode,
             ):
         multiprocessing.Process.__init__(self, name=name)
@@ -682,6 +683,7 @@ class SimulationWorker(multiprocessing.Process):
         self.is_folded_site_frequency_spectrum = is_folded_site_frequency_spectrum
         self.stat_label_prefix = stat_label_prefix
         self.is_include_model_id_field = is_include_model_id_field
+        self.supplemental_labels = supplemental_labels
         self.is_debug_mode = debug_mode
         self.kill_received = False
         self.num_tasks_received = 0
@@ -748,6 +750,11 @@ class SimulationWorker(multiprocessing.Process):
 
     def simulate(self):
         results_d = collections.OrderedDict()
+        if self.is_include_model_id_field:
+            results_d["model.id"] = None
+        if self.supplemental_labels:
+            for key in self.supplemental_labels:
+                results_d[key] = self.supplemental_labels[key]
         params, fsc2_run_configurations = self.model.sample_parameter_values_from_prior(rng=self.rng)
         results_d.update(params)
         for lineage_pair_idx, lineage_pair in enumerate(self.model.lineage_pairs):
@@ -761,6 +768,8 @@ class SimulationWorker(multiprocessing.Process):
                         random_seed=self.rng.randint(1, 1E6),
                         results_d=results_d,
                         )
+        if self.is_include_model_id_field:
+            results_d["model.id"] = results_d["param.divTimeModel"]
         return results_d
 
 class GerenukSimulator(object):
@@ -844,6 +853,7 @@ class GerenukSimulator(object):
         else:
             self.is_folded_site_frequency_spectrum = False
         self.stat_label_prefix = config_d.pop("stat_label_prefix", "stat")
+        self.supplemental_labels = config_d.pop("supplemental_labels", None)
         self.is_include_model_id_field = config_d.pop("is_include_model_id_field", False)
         if "params" not in config_d:
             raise ValueError("Missing 'params' entry in configuration")
@@ -888,6 +898,7 @@ class GerenukSimulator(object):
                     is_folded_site_frequency_spectrum=self.is_folded_site_frequency_spectrum,
                     stat_label_prefix=self.stat_label_prefix,
                     is_include_model_id_field=self.is_include_model_id_field,
+                    supplemental_labels=self.supplemental_labels,
                     debug_mode=self.is_debug_mode,
                     )
             worker.start()
