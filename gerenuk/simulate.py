@@ -466,7 +466,7 @@ class GerenukSimulationModel(object):
                         "ti_proportional_bias": (1.0 * locus_definition.ti_tv_rate_ratio)/3.0,
                         }
                     fsc2_run_configurations[locus_definition] = fsc2_config_d
-        params["param.divTimeModel"] = "".join(div_time_model_desc)
+        params["param.divTimeModel"] = "M{}".format("".join(div_time_model_desc))
         return params, fsc2_run_configurations
 
 class Fsc2RuntimeError(RuntimeError):
