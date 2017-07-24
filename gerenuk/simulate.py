@@ -341,7 +341,7 @@ class GerenukSimulationModel(object):
 
         ## div time
         concentration_v = rng.gammavariate(*self.prior_concentration)
-        params["param.divModel"] = "NA" # initialize here, so first column
+        params["param.divTimeModel"] = "NA" # initialize here, so first column
         params["param.concentration"] = concentration_v
         groups = sample_partition(
                 number_of_elements=self.num_lineage_pairs,
@@ -466,7 +466,7 @@ class GerenukSimulationModel(object):
                         "ti_proportional_bias": (1.0 * locus_definition.ti_tv_rate_ratio)/3.0,
                         }
                     fsc2_run_configurations[locus_definition] = fsc2_config_d
-        params["param.divModel"] = "".join(div_time_model_desc)
+        params["param.divTimeModel"] = "".join(div_time_model_desc)
         return params, fsc2_run_configurations
 
 class Fsc2RuntimeError(RuntimeError):
@@ -854,7 +854,13 @@ class GerenukSimulator(object):
         if config_d:
             raise Exception("Unrecognized configuration entries: {}".format(config_d))
 
-    def execute(self, nreps):
+    def execute(self,
+            nreps,
+            results_csv_writer=None,
+            results_store=None,
+            is_write_header=True,
+            column_separator=","
+            ):
         # load up queue
         self.run_logger.info("Creating work queue")
         work_queue = multiprocessing.Queue()
@@ -888,7 +894,6 @@ class GerenukSimulator(object):
 
         # collate results
         result_count = 0
-        results_collator = []
         try:
             while result_count < nreps:
                 result = results_queue.get()
@@ -900,7 +905,13 @@ class GerenukSimulator(object):
                                               result.worker_name,
                                               result.traceback_exc))
                     raise result
-                results_collator.append(result)
+                if results_store is not None:
+                    results_store.append(result)
+                if results_csv_writer is not None:
+                    if result_count == 0 and is_write_header:
+                        results_csv_writer.fieldnames = result.keys()
+                        results_csv_writer.writeheader()
+                    results_csv_writer.writerow(result)
                 # self.run_logger.info("Recovered results from worker process '{}'".format(result.worker_name))
                 result_count += 1
                 # self.info_message("Recovered results from {} of {} worker processes".format(result_count, self.num_processes))
@@ -909,7 +920,7 @@ class GerenukSimulator(object):
                 worker.terminate()
             raise
         self.run_logger.info("All {} worker processes terminated".format(self.num_processes))
-        return results_collator
+        return results_store
 
 if __name__ == "__main__":
     config_d = {
@@ -942,8 +953,8 @@ if __name__ == "__main__":
                         'locus_label': 'LocusS1M1',
                         'ploidy_factor': 1,
                         'mutation_rate_factor': 1,
-                        'num_genes_deme0': 38,
-                        'num_genes_deme1': 38,
+                        'num_genes_deme0': 5,
+                        'num_genes_deme1': 5,
                         'ti_tv_rate_ratio': 3,
                         'num_sites': 80,
                         'freq_a': 0.263,
@@ -956,8 +967,8 @@ if __name__ == "__main__":
                         'locus_label': 'LocusS1M2',
                         'ploidy_factor': 1,
                         'mutation_rate_factor': 1,
-                        'num_genes_deme0': 38,
-                        'num_genes_deme1': 36,
+                        'num_genes_deme0': 5,
+                        'num_genes_deme1': 5,
                         'ti_tv_rate_ratio': 3,
                         'num_sites': 80,
                         'freq_a': 0.149,
@@ -966,24 +977,26 @@ if __name__ == "__main__":
                         'alignment_filepath': 'S1M2.fasta',
                         },
 
-                {'taxon_label': 'S1', 'locus_label': 'LocusS1M3', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 34, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 1, 'num_sites': 80, 'freq_a': 0.212, 'freq_c': 0.315, 'freq_g': 0.188, 'alignment_filepath': 'S1M3.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 40, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 1.2, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
-                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 38, 'num_genes_deme1': 40, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_g': 0.175, 'alignment_filepath': 'S2M2.fasta', },
-                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', },
-                {'taxon_label': 'S3', 'locus_label': 'LocusS3M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 36, 'num_genes_deme1': 32, 'ti_tv_rate_ratio': 1.0, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M2.fasta', }
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 1.2, 'num_sites': 120, 'freq_a': 0.306, 'freq_c': 0.247, 'freq_g': 0.236, 'alignment_filepath': 'S2M1.fasta', },
+                {'taxon_label': 'S2', 'locus_label': 'LocusS2M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.233, 'freq_c': 0.243, 'freq_g': 0.175, 'alignment_filepath': 'S2M2.fasta', },
+                {'taxon_label': 'S3', 'locus_label': 'LocusS3M1', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 3.8, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M1.fasta', },
+                {'taxon_label': 'S3', 'locus_label': 'LocusS3M2', 'ploidy_factor': 1, 'mutation_rate_factor': 1, 'num_genes_deme0': 5, 'num_genes_deme1': 5, 'ti_tv_rate_ratio': 1.0, 'num_sites': 120, 'freq_a': 0.244, 'freq_c': 0.242, 'freq_g': 0.264, 'alignment_filepath': 'S3M2.fasta', }
                 ],
             }
     gs = GerenukSimulator(
             config_d=config_d,
             num_processes=3,
             is_verbose_setup=True)
+    writer = utility.get_csv_writer(filepath="-")
     try:
-        results = gs.execute(5)
+        results = gs.execute(
+                nreps=5,
+                results_csv_writer=writer,
+                results_store=None,
+                is_write_header=True,
+                column_separator=",")
     except Exception as e:
         sys.stderr.write("Traceback (most recent call last):\n  {}{}\n".format(
             "  ".join(traceback.format_tb(sys.exc_info()[2])),
             e))
         sys.exit(1)
-    utility.write_dict_csv(
-            list_of_dicts=results,
-            filepath="-")

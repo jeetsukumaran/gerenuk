@@ -80,7 +80,8 @@ class MpArchitectureTests(unittest.TestCase):
                 num_processes=num_processes,
                 is_verbose_setup=False)
         gs.worker_class = TestWorker
-        results = gs.execute(nreps)
+        results = []
+        gs.execute(nreps, results_store=results)
         self.assertEqual(len(results), nreps)
         counter = Counter()
         for result_idx, result in enumerate(results):
