@@ -82,7 +82,7 @@ def main():
             help="Number of processes/CPU to run (default: '%(default)s').")
     run_options.add_argument("--log-frequency",
             default=None,
-            type=float,
+            type=int,
             help="Frequency that background progress messages get written to the log (0: do not log informational messages).")
     run_options.add_argument("--file-logging-level",
             default=None,
@@ -119,7 +119,12 @@ def main():
         config_d["output_prefix"] = os.path.splitext(os.path.basename(args.model_file))[0]
     else:
         config_d["output_prefix"] = args.output_prefix
-    config_d["logging_frequency"] = args.log_frequency
+    if args.log_frequency is None:
+        config_d["logging_frequency"] = int(args.num_reps/10.0)
+    elif args.log_frequency == 0:
+        config_d["logging_frequency"] = None
+    else:
+        config_d["logging_frequency"] = args.log_frequency
     config_d["fsc2_path"] = args.fsc2_path
     config_d["file_logging_level"] = args.file_logging_level
     config_d["standard_error_logging_level"] = args.stderr_logging_level

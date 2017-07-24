@@ -600,14 +600,14 @@ class Fsc2Handler(object):
         return results_d
 
     def _harvest_run_results(self, field_name_prefix, results_d):
-        self._parse_deme_derived_allele_frequencies(
-                filepath=self.deme0_derived_allele_frequency_filepath,
-                field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(0)),
-                results_d=results_d)
-        self._parse_deme_derived_allele_frequencies(
-                filepath=self.deme1_derived_allele_frequency_filepath,
-                field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(1)),
-                results_d=results_d)
+        # self._parse_deme_derived_allele_frequencies(
+        #         filepath=self.deme0_derived_allele_frequency_filepath,
+        #         field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(0)),
+        #         results_d=results_d)
+        # self._parse_deme_derived_allele_frequencies(
+        #         filepath=self.deme1_derived_allele_frequency_filepath,
+        #         field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(1)),
+        #         results_d=results_d)
         self._parse_joint_derived_allele_frequencies(
                 filepath=self.joint_derived_allele_frequency_filepath,
                 field_name_prefix="{}.joint.sfs".format(field_name_prefix),
