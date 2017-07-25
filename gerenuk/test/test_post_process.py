@@ -47,10 +47,10 @@ class FilterColumnsTestCase(unittest.TestCase):
         dest = StringIO()
         master_file = StringIO("\n".join(master).replace("|", "\t"))
         target_file = StringIO("\n".join(target).replace("|", "\t"))
-        utility.filter_columns(
+        utility.filter_columns_using_master_template_file(
                 dest=dest,
                 master_file=master_file,
-                target_file=target_file)
+                source_file=target_file)
         result = dest.getvalue().strip()
         expected_str = "\n".join(expected).replace("|", "\t")
         self.assertEqual(result, expected_str)

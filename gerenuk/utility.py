@@ -326,22 +326,36 @@ def parse_fieldname_and_value(labels):
 ##############################################################################
 ## Post-processing
 
-def filter_columns(
+def filter_columns_using_master_template_file(
         dest,
         master_file,
-        target_file,
+        source_file,
         field_delimiter="\t",
         ):
-    if not (sys.version_info.major >= 3 and sys.version_info.minor >= 4):
-        open = pre_py34_open
+    master_field_names = extract_fieldnames_from_file(src=master_file, field_delimiter="\t")
+    filter_columns_from_file(
+            dest=dest,
+            source_file=source_file,
+            columns_to_retain=master_field_names,
+            field_delimiter=field_delimiter,
+            )
+
+def extract_fieldnames_from_file(src, field_delimiter="\t"):
     master_reader = csv.DictReader(
-            master_file,
+            src,
             delimiter=field_delimiter,
             quoting=csv.QUOTE_NONE)
     master_field_names = master_reader.fieldnames
-    master_field_names_set = set(master_field_names)
-    target_reader = csv.DictReader(
-            target_file,
+    return master_reader.fieldnames
+
+def filter_columns_from_file(
+        dest,
+        source_file,
+        columns_to_retain,
+        field_delimiter="\t",
+        ):
+    source_reader = csv.DictReader(
+            source_file,
             delimiter=field_delimiter,
             quoting=csv.QUOTE_NONE,
             )
@@ -355,20 +369,21 @@ def filter_columns(
             )
     to_delete = None
     to_keep = []
-    for row_idx, row in enumerate(target_reader):
+    for row_idx, row in enumerate(source_reader):
         if to_delete is None:
             to_delete = set()
-            for key in target_reader.fieldnames:
-                if key not in master_field_names:
+            for key in source_reader.fieldnames:
+                if key not in columns_to_retain:
                     to_delete.add(key)
-            for key in master_field_names:
-                if key in target_reader.fieldnames:
+            for key in columns_to_retain:
+                if key in source_reader.fieldnames:
                     to_keep.append(key)
             target_writer.fieldnames = to_keep
             target_writer.writeheader()
         for key in to_delete:
             del row[key]
         target_writer.writerow(row)
+
 
 ##############################################################################
 ## Logging
