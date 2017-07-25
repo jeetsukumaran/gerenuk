@@ -27,6 +27,7 @@ class GerenukEstimator(object):
         self.field_delimiter = field_delimiter
         self.is_output_summary_stats = is_output_summary_stats
         self.is_suppress_checks = is_suppress_checks
+        self.all_fieldnames = None
         self.other_fieldnames = None
         self.stat_fieldnames = None
         self.stat_fieldnames_check = None
@@ -45,7 +46,8 @@ class GerenukEstimator(object):
                 for row_idx, row in enumerate(reader):
                     if self.logging_frequency and row_idx > 0 and row_idx % self.logging_frequency == 0:
                         self.run_logger.info("- Processing row {}".format(row_idx+1))
-                    if self.stat_fieldnames is None:
+                    if self.all_fieldnames is None:
+                        self.all_fieldnames = list(reader.fieldnames)
                         self.stat_fieldnames = []
                         self.other_fieldnames = []
                         for field in reader.fieldnames:
@@ -57,7 +59,7 @@ class GerenukEstimator(object):
                         self.other_fieldname_check = set(self.other_fieldnames)
                     row_stat_values = []
                     row_other_values = []
-                    for key_idx, key in enumerate(row):
+                    for key_idx, key in enumerate(self.all_fieldnames): # keys must be read in same order!
                         if not self.is_suppress_checks:
                             if key not in self.stat_fieldnames_check and key not in self.other_fieldname_check:
                                 raise ValueError("File '{}', row {}, column {}: field '{}' not recognized".format(
@@ -66,6 +68,7 @@ class GerenukEstimator(object):
                             row_stat_values.append(float(row[key]))
                         else:
                             row_other_values.append( row[key] )
+                    # assert len(row) == len(row_stat_values) + len(row_other_values)
                     self.stat_values.append(row_stat_values)
                     self.other_values.append(row_other_values)
 
@@ -99,7 +102,9 @@ class GerenukEstimator(object):
             for row_idx, row in enumerate(reader):
                 target_stat_values = []
                 target_other_values = []
-                for key_idx, key in enumerate(row):
+                for key_idx, key in enumerate(self.all_fieldnames): # keys must be read in same order!
+                    if key not in row:
+                        continue
                     if not self.is_suppress_checks:
                         if key not in self.stat_fieldnames_check and key not in self.other_fieldname_check:
                             raise ValueError("File '{}', target {}, column {}: field '{}' not recognized".format(
