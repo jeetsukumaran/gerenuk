@@ -817,7 +817,7 @@ class GerenukSimulator(object):
         self.run_logger = config_d.pop("run_logger", None)
         if self.run_logger is None:
             self.run_logger = utility.RunLogger(
-                    name="gerenuk",
+                    name="gerenuk-simulate",
                     stderr_logging_level=config_d.pop("standard_error_logging_level", "info"),
                     log_to_file=config_d.pop("log_to_file", True),
                     log_to_stderr=config_d.pop("log_to_stderr", True),
