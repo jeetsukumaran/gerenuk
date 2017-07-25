@@ -335,7 +335,7 @@ def filter_columns_using_master_template_file(
     master_field_names = extract_fieldnames_from_file(src=master_file, field_delimiter="\t")
     filter_columns_from_file(
             dest=dest,
-            source_file=source_file,
+            src=source_file,
             columns_to_retain=master_field_names,
             field_delimiter=field_delimiter,
             )
@@ -349,13 +349,13 @@ def extract_fieldnames_from_file(src, field_delimiter="\t"):
     return master_reader.fieldnames
 
 def filter_columns_from_file(
+        src,
         dest,
-        source_file,
         columns_to_retain,
         field_delimiter="\t",
         ):
     source_reader = csv.DictReader(
-            source_file,
+            src,
             delimiter=field_delimiter,
             quoting=csv.QUOTE_NONE,
             )
@@ -383,7 +383,6 @@ def filter_columns_from_file(
         for key in to_delete:
             del row[key]
         target_writer.writerow(row)
-
 
 ##############################################################################
 ## Logging

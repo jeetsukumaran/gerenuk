@@ -56,7 +56,7 @@ def main():
     output_options.add_argument('--field-delimiter',
         type=str,
         default='\t',
-        help="Delimiter string separator fields in output (default: <TAB>').")
+        help="Delimiter string separating fields in output (default: <TAB>').")
     output_options.add_argument('--summary-stats-label-prefix',
         type=str,
         default='stat',
