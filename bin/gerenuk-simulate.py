@@ -10,26 +10,16 @@ from gerenuk import utility
 
 def main():
     parser = argparse.ArgumentParser(
-            description="GERENUK Simultaneous Divergence Time Analysis -- Site Frequency Spectrum Simulator",
+            description="GERENUK Site Frequency Spectrum Simulator",
             )
-
-    model_options = parser.add_argument_group("Simulation Model")
-    model_options.add_argument("model_file",
-            metavar="MODEL-FILE",
-            help="Path to file defining the model.")
-
-    simulator_options = parser.add_argument_group("Simulation Options")
-    simulator_options.add_argument("-n", "--num-reps",
-            type=int,
-            default=10,
-            help="Number of replicates (default: %(default)s).")
-    simulator_options.add_argument("-z", "--random-seed",
-            default=None,
-            help="Seed for random number generator engine.")
-    simulator_options.add_argument("-s", "--site-frequency-spectrum-type",
-            choices=["folded", "unfolded"],
-            default="folded",
-            help="Type of site frequency spectrum to generate, 'folded' or 'unfolded' (default: %(default)s).")
+    simulator_options = parser.add_argument_group("Simulation Configuration")
+    simulator_options.add_argument("configuration_filepath",
+            metavar="CONFIGURATION-FILE",
+            help="Path to file defining the simulation model and parameters.")
+    # simulator_options.add_argument("-s", "--site-frequency-spectrum-type",
+    #         choices=["folded", "unfolded"],
+    #         default="folded",
+    #         help="Type of site frequency spectrum to generate, 'folded' or 'unfolded' (default: %(default)s).")
 
     output_options = parser.add_argument_group("Output Options")
     output_options.add_argument('--name',
@@ -50,9 +40,26 @@ def main():
         type=str,
         default=None,
         help="Directory within which to create temporary directories and files.")
+    output_options.add_argument(
+            "-U",
+            "--unfolded-site-frequency-spectrum",
+            "--derived-site-frequency-spectrum",
+            action="store_true",
+            default=False,
+            help="Calculate the unfolded or derived site frequency spectrum."
+                 " Otherwise, defaults to the folded or minor site frequency"
+                 " spectrum."
+            )
+    output_options.add_argument(
+            "--calculate-single-population-site-frequency-spectrum",
+            action="store_true",
+            default=False,
+            help="Calculate the single (within) population site frequency"
+                 " spectrum in addition to the joint."
+            )
     output_options.add_argument("-l", "--labels",
             action="append",
-            help="Labels to append to output (in format <FIELD-NAME>:value;)")
+            help="Addition field/value pairs to add to the output (in format <FIELD-NAME>:value;)")
     output_options.add_argument('--field-delimiter',
         type=str,
         default='\t',
@@ -61,7 +68,7 @@ def main():
         type=str,
         default='stat',
         metavar='PREFIX',
-        help="Prefix for field labels for summary statistics (default: '%(default)s').")
+        help="Prefix for summar statistic field labels (default: '%(default)s').")
     output_options.add_argument( "--include-model-id-field",
             action="store_true",
             default=False,
@@ -76,10 +83,17 @@ def main():
             help="Do not writer header row.")
 
     run_options = parser.add_argument_group("Run Options")
+    run_options.add_argument("-n", "--num-reps",
+            type=int,
+            default=1,
+            help="Number of replicates (default: %(default)s).")
     run_options.add_argument("-m", "--num-processes",
             default=1,
             type=int,
-            help="Number of processes/CPU to run (default: '%(default)s').")
+            help="Number of processes/CPU to run (default: %(default)s).")
+    run_options.add_argument("-z", "--random-seed",
+            default=None,
+            help="Seed for random number generator engine.")
     run_options.add_argument("--log-frequency",
             default=None,
             type=int,
@@ -109,14 +123,14 @@ def main():
 
     config_d = {}
     utility.parse_legacy_configuration(
-            filepath=args.model_file,
+            filepath=args.configuration_filepath,
             config_d=config_d)
     if args.name is None:
         config_d["name"] = time.strftime("%Y%m%d%H%M%S")
     else:
         config_d["name"] = args.name
     if args.output_prefix is None:
-        config_d["output_prefix"] = os.path.splitext(os.path.basename(args.model_file))[0]
+        config_d["output_prefix"] = os.path.splitext(os.path.basename(args.configuration_filepath))[0]
     else:
         config_d["output_prefix"] = args.output_prefix
     if args.log_frequency is None:
@@ -130,7 +144,9 @@ def main():
     config_d["standard_error_logging_level"] = args.stderr_logging_level
     # config_d["log_to_file"] = args.log_to_file
     # config_d["log_to_stderr"] = args.log_to_stderr
-    config_d["site_frequency_spectrum_type"] = args.site_frequency_spectrum_type
+    config_d["is_unfolded_site_frequency_spectrum"] = args.unfolded_site_frequency_spectrum
+    config_d["is_calculate_single_population_sfs"] = args.calculate_single_population_site_frequency_spectrum
+    config_d["is_calculate_joint_population_sfs"] = True
     config_d["stat_label_prefix"] = args.summary_stats_label_prefix
     config_d["supplemental_labels"] = utility.parse_fieldname_and_value(args.labels)
     config_d["is_include_model_id_field"] = args.include_model_id_field

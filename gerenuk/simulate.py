@@ -479,26 +479,30 @@ class Fsc2Handler(object):
             name,
             fsc2_path,
             working_directory,
-            is_folded_site_frequency_spectrum,
+            is_calculate_single_population_sfs,
+            is_calculate_joint_population_sfs,
+            is_unfolded_site_frequency_spectrum,
             ):
         self.name = name
         self.fsc2_path = fsc2_path
         self.working_directory = working_directory
-        self.is_folded_site_frequency_spectrum = is_folded_site_frequency_spectrum
-        if self.is_folded_site_frequency_spectrum:
-            self.sfs_file_prefix = "MAF"
-            self.fsc2_sfs_generation_command = "-m"
-        else:
+        self.is_unfolded_site_frequency_spectrum = is_unfolded_site_frequency_spectrum
+        if self.is_unfolded_site_frequency_spectrum:
             self.sfs_file_prefix = "DAF"
             self.fsc2_sfs_generation_command = "-d"
+        else:
+            self.sfs_file_prefix = "MAF"
+            self.fsc2_sfs_generation_command = "-m"
+        self.is_calculate_single_population_sfs = is_calculate_single_population_sfs
+        self.is_calculate_joint_population_sfs = is_calculate_joint_population_sfs
         self._is_file_system_staged = False
         self._num_executions = 0
         self._current_execution_id = None
         self._parameter_filepath = None
         self._results_dirpath = None
-        self._deme0_derived_allele_frequency_filepath = None
-        self._deme1_derived_allele_frequency_filepath = None
-        self._joint_derived_allele_frequency_filepath = None
+        self._deme0_site_frequency_filepath = None
+        self._deme1_site_frequency_filepath = None
+        self._joint_site_frequency_filepath = None
 
     def _get_current_execution_id(self):
         if self._current_execution_id is None:
@@ -520,23 +524,23 @@ class Fsc2Handler(object):
         return self._results_dirpath
     results_dirpath = property(_get_results_dirpath)
 
-    def _get_result_deme0_derived_allele_frequency_filepath(self):
-        if self._deme0_derived_allele_frequency_filepath is None:
-            self._deme0_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_{}pop0.obs".format(self.name, self.sfs_file_prefix))
-        return self._deme0_derived_allele_frequency_filepath
-    deme0_derived_allele_frequency_filepath = property(_get_result_deme0_derived_allele_frequency_filepath)
+    def _get_result_deme0_site_frequency_filepath(self):
+        if self._deme0_site_frequency_filepath is None:
+            self._deme0_site_frequency_filepath = os.path.join(self.results_dirpath, "{}_{}pop0.obs".format(self.name, self.sfs_file_prefix))
+        return self._deme0_site_frequency_filepath
+    deme0_site_frequency_filepath = property(_get_result_deme0_site_frequency_filepath)
 
-    def _get_result_deme1_derived_allele_frequency_filepath(self):
-        if self._deme1_derived_allele_frequency_filepath is None:
-            self._deme1_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_{}pop1.obs".format(self.name, self.sfs_file_prefix))
-        return self._deme1_derived_allele_frequency_filepath
-    deme1_derived_allele_frequency_filepath = property(_get_result_deme1_derived_allele_frequency_filepath)
+    def _get_result_deme1_site_frequency_filepath(self):
+        if self._deme1_site_frequency_filepath is None:
+            self._deme1_site_frequency_filepath = os.path.join(self.results_dirpath, "{}_{}pop1.obs".format(self.name, self.sfs_file_prefix))
+        return self._deme1_site_frequency_filepath
+    deme1_site_frequency_filepath = property(_get_result_deme1_site_frequency_filepath)
 
-    def _get_result_joint_derived_allele_frequency_filepath(self):
-        if self._joint_derived_allele_frequency_filepath is None:
-            self._joint_derived_allele_frequency_filepath = os.path.join(self.results_dirpath, "{}_joint{}pop1_0.obs".format(self.name, self.sfs_file_prefix))
-        return self._joint_derived_allele_frequency_filepath
-    joint_derived_allele_frequency_filepath = property(_get_result_joint_derived_allele_frequency_filepath)
+    def _get_result_joint_site_frequency_filepath(self):
+        if self._joint_site_frequency_filepath is None:
+            self._joint_site_frequency_filepath = os.path.join(self.results_dirpath, "{}_joint{}pop1_0.obs".format(self.name, self.sfs_file_prefix))
+        return self._joint_site_frequency_filepath
+    joint_site_frequency_filepath = property(_get_result_joint_site_frequency_filepath)
 
     def _new_execution_reset(self):
         self._current_execution_id = None
@@ -600,18 +604,20 @@ class Fsc2Handler(object):
         return results_d
 
     def _harvest_run_results(self, field_name_prefix, results_d):
-        # self._parse_deme_derived_allele_frequencies(
-        #         filepath=self.deme0_derived_allele_frequency_filepath,
-        #         field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(0)),
-        #         results_d=results_d)
-        # self._parse_deme_derived_allele_frequencies(
-        #         filepath=self.deme1_derived_allele_frequency_filepath,
-        #         field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(1)),
-        #         results_d=results_d)
-        self._parse_joint_derived_allele_frequencies(
-                filepath=self.joint_derived_allele_frequency_filepath,
-                field_name_prefix="{}.joint.sfs".format(field_name_prefix),
-                results_d=results_d)
+        if self.is_calculate_single_population_sfs:
+            self._parse_deme_derived_allele_frequencies(
+                    filepath=self.deme0_site_frequency_filepath,
+                    field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(0)),
+                    results_d=results_d)
+            self._parse_deme_derived_allele_frequencies(
+                    filepath=self.deme1_site_frequency_filepath,
+                    field_name_prefix="{}.{}.sfs".format(field_name_prefix, compose_deme_label(1)),
+                    results_d=results_d)
+        if self.is_calculate_joint_population_sfs:
+            self._parse_joint_derived_allele_frequencies(
+                    filepath=self.joint_site_frequency_filepath,
+                    field_name_prefix="{}.joint.sfs".format(field_name_prefix),
+                    results_d=results_d)
         return results_d
 
     def _post_execution_cleanup(self):
@@ -661,7 +667,9 @@ class SimulationWorker(multiprocessing.Process):
             logging_frequency,
             messenger_lock,
             random_seed,
-            is_folded_site_frequency_spectrum,
+            is_calculate_single_population_sfs,
+            is_calculate_joint_population_sfs,
+            is_unfolded_site_frequency_spectrum,
             stat_label_prefix,
             is_include_model_id_field,
             supplemental_labels,
@@ -672,7 +680,9 @@ class SimulationWorker(multiprocessing.Process):
                 name=name,
                 fsc2_path=fsc2_path,
                 working_directory=working_directory,
-                is_folded_site_frequency_spectrum=is_folded_site_frequency_spectrum)
+                is_calculate_single_population_sfs=is_calculate_single_population_sfs,
+                is_calculate_joint_population_sfs=is_calculate_joint_population_sfs,
+                is_unfolded_site_frequency_spectrum=is_unfolded_site_frequency_spectrum)
         self.model = model
         self.rng = random.Random(random_seed)
         self.work_queue = work_queue
@@ -680,7 +690,7 @@ class SimulationWorker(multiprocessing.Process):
         self.run_logger = run_logger
         self.logging_frequency = logging_frequency
         self.messenger_lock = messenger_lock
-        self.is_folded_site_frequency_spectrum = is_folded_site_frequency_spectrum
+        self.is_unfolded_site_frequency_spectrum = is_unfolded_site_frequency_spectrum
         self.stat_label_prefix = stat_label_prefix
         self.is_include_model_id_field = is_include_model_id_field
         self.supplemental_labels = supplemental_labels
@@ -850,10 +860,11 @@ class GerenukSimulator(object):
         if self.is_verbose_setup and self.is_debug_mode:
             self.run_logger.info("Running in DEBUG mode")
         self.site_frequency_spectrum_type = config_d.pop("site_frequency_spectrum_type", "unfolded").lower()
-        if self.site_frequency_spectrum_type == "folded" or self.site_frequency_spectrum_type == "minor":
-            self.is_folded_site_frequency_spectrum = True
-        else:
-            self.is_folded_site_frequency_spectrum = False
+        self.is_unfolded_site_frequency_spectrum = config_d.pop("is_unfolded_site_frequency_spectrum", False)
+        self.is_calculate_single_population_sfs = config_d.pop("is_calculate_single_population_sfs", False)
+        self.is_calculate_joint_population_sfs = config_d.pop("is_calculate_joint_population_sfs", True)
+        if not self.is_calculate_single_population_sfs and not self.is_calculate_joint_population_sfs:
+            raise ValueError("Neither single-population nor joint site frequency spectrum will be calculated!")
         self.stat_label_prefix = config_d.pop("stat_label_prefix", "stat")
         self.supplemental_labels = config_d.pop("supplemental_labels", None)
         self.is_include_model_id_field = config_d.pop("is_include_model_id_field", False)
@@ -896,7 +907,9 @@ class GerenukSimulator(object):
                     logging_frequency=self.logging_frequency,
                     messenger_lock=messenger_lock,
                     random_seed=self.rng.randint(1, sys.maxint),
-                    is_folded_site_frequency_spectrum=self.is_folded_site_frequency_spectrum,
+                    is_calculate_single_population_sfs=self.is_calculate_single_population_sfs,
+                    is_calculate_joint_population_sfs=self.is_calculate_joint_population_sfs,
+                    is_unfolded_site_frequency_spectrum=self.is_unfolded_site_frequency_spectrum,
                     stat_label_prefix=self.stat_label_prefix,
                     is_include_model_id_field=self.is_include_model_id_field,
                     supplemental_labels=self.supplemental_labels,
