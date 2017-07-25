@@ -9,7 +9,10 @@ setup(
     author="Jeet Sukumaran",
     author_email="jeetsukumaran@gmail.com",
     packages=["gerenuk"],
-    scripts=["bin/gerenuk-simulate.py",],
+    scripts=[
+        "bin/gerenuk-simulate.py",
+        "bin/gerenuk-estimate.py",
+        ],
     url="http://pypi.python.org/pypi/gerenuk/",
     test_suite = "gerenuk.test",
     license="LICENSE.txt",
