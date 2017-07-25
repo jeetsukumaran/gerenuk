@@ -324,6 +324,53 @@ def parse_fieldname_and_value(labels):
     return fieldname_value_map
 
 ##############################################################################
+## Post-processing
+
+def filter_columns(
+        dest,
+        master_file,
+        target_file,
+        field_delimiter="\t",
+        ):
+    if not (sys.version_info.major >= 3 and sys.version_info.minor >= 4):
+        open = pre_py34_open
+    master_reader = csv.DictReader(
+            master_file,
+            delimiter=field_delimiter,
+            quoting=csv.QUOTE_NONE)
+    master_field_names = master_reader.fieldnames
+    master_field_names_set = set(master_field_names)
+    target_reader = csv.DictReader(
+            target_file,
+            delimiter=field_delimiter,
+            quoting=csv.QUOTE_NONE,
+            )
+    target_writer = csv.DictWriter(
+            dest,
+            delimiter=field_delimiter,
+            quoting=csv.QUOTE_NONE,
+            fieldnames=None,
+            restval="NA",
+            lineterminator=os.linesep,
+            )
+    to_delete = None
+    to_keep = []
+    for row_idx, row in enumerate(target_reader):
+        if to_delete is None:
+            to_delete = set()
+            for key in target_reader.fieldnames:
+                if key not in master_field_names:
+                    to_delete.add(key)
+            for key in master_field_names:
+                if key in target_reader.fieldnames:
+                    to_keep.append(key)
+            target_writer.fieldnames = to_keep
+            target_writer.writeheader()
+        for key in to_delete:
+            del row[key]
+        target_writer.writerow(row)
+
+##############################################################################
 ## Logging
 
 _LOGGING_LEVEL_ENVAR = "GERENUK_LOGGING_LEVEL"
