@@ -340,14 +340,26 @@ class GerenukSimulationModel(object):
         params = collections.OrderedDict()
 
         ## div time
-        concentration_v = rng.gammavariate(*self.prior_concentration)
         params["param.divTimeModel"] = "NA" # initialize here, so first column
-        # params["param.concentration"] = concentration_v
-        groups = sample_partition(
-                number_of_elements=self.num_lineage_pairs,
-                scaling_parameter=concentration_v, # sample from prior
-                rng=rng,
-                )
+        if self.num_tau_classes:
+            if self.num_tau_classes >= self.num_lineage_pairs:
+                groups = [[idx] for idx in range(self.num_lineage_pairs)]
+            else:
+                element_ids = [i for i in range(self.num_lineage_pairs)] # decouple actual element index values, from indexes used to run Dirichlet process
+                rng.shuffle(element_ids)
+                groups = [[] for idx in range(self.num_tau_classes)]
+                for group in groups:
+                    group.append(element_ids.pop(0))
+                for element_id in element_ids:
+                    rng.choice(groups).append(element_id)
+        else:
+            concentration_v = rng.gammavariate(*self.prior_concentration)
+            # params["param.concentration"] = concentration_v
+            groups = sample_partition(
+                    number_of_elements=self.num_lineage_pairs,
+                    scaling_parameter=concentration_v, # sample from prior
+                    rng=rng,
+                    )
         params["param.numDivTimes"] = len(groups)
         div_time_values = [rng.gammavariate(*self.prior_tau) for i in groups]
         fsc2_run_configurations = collections.OrderedDict()
