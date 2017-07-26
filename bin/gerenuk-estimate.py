@@ -14,6 +14,8 @@ if not (sys.version_info.major >= 3 and sys.version_info.minor >= 4):
 class GerenukEstimator(object):
 
     def __init__(self,
+            estimation_criteria_type,
+            estimation_criteria_value,
             run_logger,
             stats_field_prefix="stat",
             logging_frequency=1000,
@@ -21,6 +23,8 @@ class GerenukEstimator(object):
             is_output_summary_stats=False,
             is_suppress_checks=False,
             ):
+        self.estimation_criteria_type = estimation_criteria_type
+        self.estimation_criteria_value = estimation_criteria_value
         self.run_logger = run_logger
         self.stats_field_prefix = stats_field_prefix
         self.logging_frequency = logging_frequency
@@ -83,17 +87,27 @@ class GerenukEstimator(object):
                 len(self.stat_fieldnames),
                 len(target_stat_values),
                 )
-        distances = []
+        results = []
         for idx, prior_value in enumerate(self.stat_values):
             d = self.euclidean_distance(prior_value, target_stat_values)
-            distances.append((d, idx,))
-        distances.sort(key=lambda x: x[0])
-        return distances[:num_to_retain]
+            results.append((d, idx,))
+        results.sort(key=lambda x: x[0])
+        return results[:num_to_retain]
 
-    def write_posterior(self,
-            target_data_filepath,
-            num_to_retain,
-            ):
+    def filter_by_distance(self, target_stat_values, max_distance):
+        assert len(target_stat_values) == len(self.stat_fieldnames), "Expecting {} values but found {}".format(
+                len(self.stat_fieldnames),
+                len(target_stat_values),
+                )
+        results = []
+        for idx, prior_value in enumerate(self.stat_values):
+            d = self.euclidean_distance(prior_value, target_stat_values)
+            if d <= max_distance:
+                results.append((d, idx,))
+        results.sort(key=lambda x: x[0])
+        return results[:num_to_retain]
+
+    def write_posterior(self, target_data_filepath,):
         with open(target_data_filepath) as src:
             reader = csv.DictReader(
                     src,
@@ -113,7 +127,16 @@ class GerenukEstimator(object):
                         target_stat_values.append(float(row[key]))
                     else:
                         target_other_values.append( row[key] )
-                posterior_indexes = self.closest_values_indexes(
+                if self.estimation_criteria == "distance":
+                    posterior_indexes = self.filter_by_distance(
+                        target_stat_values=target_stat_values,
+                        max_distance=self.estimation_criteria_value)
+                else:
+                    if self.estimation_criteria == "num":
+                        num_to_retain = self.estimation_criteria_value
+                    elif self.estimation_criteria == "proportion":
+                        num_to_retain = int(self.estimation_criteria_value * len(target_stat_values))
+                    posterior_indexes = self.closest_values_indexes(
                         target_stat_values=target_stat_values,
                         num_to_retain=num_to_retain,)
                 dest = open(os.path.splitext(os.path.basename(target_data_filepath))[0] + ".posterior.{}.tsv".format(row_idx+1), "w")
@@ -138,27 +161,75 @@ def main():
             "simulations_data_filepaths",
             nargs="+",
             help="Path to samples from the prior data files.")
+    # estimation_criteria = parser.add_mutually_exclusive_group(required=True)
+    # estimation_criteria.add_argument(
+    #         "-n", "--retain-max-num",
+    #         type=int,
+    #         metavar="#",
+    #         help="Retain this number of samples from the prior into the posterior.")
+    # estimation_criteria.add_argument(
+    #         "-p", "--retain-max-proportion",
+    #         type=float,
+    #         metavar="0.##",
+    #         help="Retain this proportion (0 > 'p' > 1.0) of samples from the prior into the posterior.")
+    # estimation_criteria.add_argument(
+    #         "-d", "--retain-max-distance",
+    #         type=float,
+    #         metavar="#.##",
+    #         help="Retain samples this distance or lower from the prior into the posterior.")
+    estimation_criteria = parser.add_argument_group("Estimation Criteria")
+    estimation_criteria.add_argument(
+            "-n", "--max-num",
+            type=int,
+            metavar="#",
+            default=None,
+            help="Retain this number of samples from the prior into the posterior.")
+    estimation_criteria.add_argument(
+            "-p", "--max-proportion",
+            type=float,
+            metavar="0.##",
+            default=None,
+            help="Retain this proportion (0 > 'p' > 1.0) of samples from the prior into the posterior.")
+    estimation_criteria.add_argument(
+            "-d", "--max-distance",
+            type=float,
+            metavar="#.##",
+            default=None,
+            help="Retain samples this distance or lower from the prior into the posterior.")
     processing_options = parser.add_argument_group("Processing Options")
-    processing_options.add_argument('--field-delimiter',
+    processing_options.add_argument("--field-delimiter",
         type=str,
-        default='\t',
-        help="Field delimiter (default: <TAB>').")
-    processing_options.add_argument('--stats-field-prefix',
+        default="\t",
+        help="Field delimiter (default: <TAB>).")
+    processing_options.add_argument("--stats-field-prefix",
         type=str,
-        default='stat',
-        help="Prefix identifying summary statistic fields (default: '%d(default)s').")
-    output_options = parser.add_argument_group("Run Options")
-    output_options.add_argument(
-            "--output-summary-stats",
-            action="store_true",
-            help="Include summary stats in the samples from the posterior.")
-    run_options = parser.add_argument_group("Run Options")
-    run_options.add_argument(
-            "-q", "--quiet",
-            action="store_true",
-            help="Work silently.")
+        default="stat",
+        help="Prefix identifying summary statistic fields (default: '%(default)s').")
+    # output_options = parser.add_argument_group("Run Options")
+    # output_options.add_argument(
+    #         "--output-summary-stats",
+    #         action="store_true",
+    #         help="Include summary stats in the samples from the posterior.")
+    # run_options = parser.add_argument_group("Run Options")
+    # run_options.add_argument(
+    #         "-q", "--quiet",
+    #         action="store_true",
+    #         help="Work silently.")
     args = parser.parse_args()
-
+    num_non_Nones = sum([1 for i in (args.max_num, args.max_proportion, args.max_distance) if i is not None])
+    if num_non_Nones == 0:
+        sys.exit("Require exactly one of '-n'/'--max-num', '-p'/'--max-proportion', or '-d'/'--max-distance' to be specified.")
+    elif num_non_Nones > 1:
+        sys.exit("Require only one of '-n'/'--max-num', '-p'/'--max-proportion', or '-d'/'--max-distance' to be specified.")
+    if args.max_num:
+        estimation_criteria_type = "num"
+        estimation_criteria_value = args.max_num
+    elif args.max_proportion:
+        estimation_criteria_type = "proportion"
+        estimation_criteria_value = args.max_proportion
+    elif args.max_distance:
+        estimation_criteria_type = "distance"
+        estimation_criteria_value = args.max_distance
     run_logger = utility.RunLogger(
             name="gerenuk-estimate",
             stderr_logging_level="info",
@@ -166,16 +237,15 @@ def main():
             log_to_file=False
             )
     ge = GerenukEstimator(
+            estimation_criteria_type=estimation_criteria_type
+            estimation_criteria_value=estimation_criteria_value
             run_logger=run_logger,
             stats_field_prefix=args.stats_field_prefix,
             field_delimiter=args.field_delimiter,
             is_output_summary_stats=args.output_summary_stats,
             )
     ge.read_simulated_data(args.simulations_data_filepaths)
-    ge.write_posterior(
-            target_data_filepath=args.target_data_filepath,
-            num_to_retain=100,
-            )
+    ge.write_posterior(target_data_filepath=args.target_data_filepath,)
 
 if __name__ == "__main__":
     main()
