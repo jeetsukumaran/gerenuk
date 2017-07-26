@@ -134,7 +134,7 @@ class GerenukRejector(object):
                 else:
                     if self.rejection_criteria_type == "num":
                         num_to_retain = self.rejection_criteria_value
-                    elif self.rejection_criteria == "proportion":
+                    elif self.rejection_criteria_type == "proportion":
                         num_to_retain = int(self.rejection_criteria_value * len(target_stat_values))
                     posterior_indexes = self.closest_values_indexes(
                         target_stat_values=target_stat_values,
