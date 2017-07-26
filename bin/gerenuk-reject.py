@@ -11,11 +11,11 @@ from gerenuk import utility
 if not (sys.version_info.major >= 3 and sys.version_info.minor >= 4):
     open = utility.pre_py34_open
 
-class GerenukEstimator(object):
+class GerenukRejector(object):
 
     def __init__(self,
-            estimation_criteria_type,
-            estimation_criteria_value,
+            rejection_criteria_type,
+            rejection_criteria_value,
             run_logger,
             stats_field_prefix="stat",
             logging_frequency=1000,
@@ -23,8 +23,8 @@ class GerenukEstimator(object):
             is_output_summary_stats=False,
             is_suppress_checks=False,
             ):
-        self.estimation_criteria_type = estimation_criteria_type
-        self.estimation_criteria_value = estimation_criteria_value
+        self.rejection_criteria_type = rejection_criteria_type
+        self.rejection_criteria_value = rejection_criteria_value
         self.run_logger = run_logger
         self.stats_field_prefix = stats_field_prefix
         self.logging_frequency = logging_frequency
@@ -127,15 +127,15 @@ class GerenukEstimator(object):
                         target_stat_values.append(float(row[key]))
                     else:
                         target_other_values.append( row[key] )
-                if self.estimation_criteria == "distance":
+                if self.rejection_criteria_type == "distance":
                     posterior_indexes = self.filter_by_distance(
                         target_stat_values=target_stat_values,
-                        max_distance=self.estimation_criteria_value)
+                        max_distance=self.rejection_criteria_value)
                 else:
-                    if self.estimation_criteria == "num":
-                        num_to_retain = self.estimation_criteria_value
-                    elif self.estimation_criteria == "proportion":
-                        num_to_retain = int(self.estimation_criteria_value * len(target_stat_values))
+                    if self.rejection_criteria_type == "num":
+                        num_to_retain = self.rejection_criteria_value
+                    elif self.rejection_criteria == "proportion":
+                        num_to_retain = int(self.rejection_criteria_value * len(target_stat_values))
                     posterior_indexes = self.closest_values_indexes(
                         target_stat_values=target_stat_values,
                         num_to_retain=num_to_retain,)
@@ -152,7 +152,7 @@ class GerenukEstimator(object):
 
 def main():
     parser = argparse.ArgumentParser(
-            description="GERENUK Simultaneous Divergence Time Analysis -- Post-Process Columns",
+            description="GERENUK Simultaneous Divergence Time Analysis -- Rejection",
             )
     parser.add_argument(
             "target_data_filepath",
@@ -161,36 +161,36 @@ def main():
             "simulations_data_filepaths",
             nargs="+",
             help="Path to samples from the prior data files.")
-    # estimation_criteria = parser.add_mutually_exclusive_group(required=True)
-    # estimation_criteria.add_argument(
+    # rejection_criteria = parser.add_mutually_exclusive_group(required=True)
+    # rejection_criteria.add_argument(
     #         "-n", "--retain-max-num",
     #         type=int,
     #         metavar="#",
     #         help="Retain this number of samples from the prior into the posterior.")
-    # estimation_criteria.add_argument(
+    # rejection_criteria.add_argument(
     #         "-p", "--retain-max-proportion",
     #         type=float,
     #         metavar="0.##",
     #         help="Retain this proportion (0 > 'p' > 1.0) of samples from the prior into the posterior.")
-    # estimation_criteria.add_argument(
+    # rejection_criteria.add_argument(
     #         "-d", "--retain-max-distance",
     #         type=float,
     #         metavar="#.##",
     #         help="Retain samples this distance or lower from the prior into the posterior.")
-    estimation_criteria = parser.add_argument_group("Estimation Criteria")
-    estimation_criteria.add_argument(
+    rejection_criteria = parser.add_argument_group("Rejection Criteria")
+    rejection_criteria.add_argument(
             "-n", "--max-num",
             type=int,
             metavar="#",
             default=None,
             help="Retain this number of samples from the prior into the posterior.")
-    estimation_criteria.add_argument(
+    rejection_criteria.add_argument(
             "-p", "--max-proportion",
             type=float,
             metavar="0.##",
             default=None,
             help="Retain this proportion (0 > 'p' > 1.0) of samples from the prior into the posterior.")
-    estimation_criteria.add_argument(
+    rejection_criteria.add_argument(
             "-d", "--max-distance",
             type=float,
             metavar="#.##",
@@ -205,16 +205,16 @@ def main():
         type=str,
         default="stat",
         help="Prefix identifying summary statistic fields (default: '%(default)s').")
-    # output_options = parser.add_argument_group("Run Options")
-    # output_options.add_argument(
-    #         "--output-summary-stats",
-    #         action="store_true",
-    #         help="Include summary stats in the samples from the posterior.")
-    # run_options = parser.add_argument_group("Run Options")
-    # run_options.add_argument(
-    #         "-q", "--quiet",
-    #         action="store_true",
-    #         help="Work silently.")
+    output_options = parser.add_argument_group("Run Options")
+    output_options.add_argument(
+            "--output-summary-stats",
+            action="store_true",
+            help="Include summary stats in the samples from the posterior.")
+    run_options = parser.add_argument_group("Run Options")
+    run_options.add_argument(
+            "-q", "--quiet",
+            action="store_true",
+            help="Work silently.")
     args = parser.parse_args()
     num_non_Nones = sum([1 for i in (args.max_num, args.max_proportion, args.max_distance) if i is not None])
     if num_non_Nones == 0:
@@ -222,30 +222,30 @@ def main():
     elif num_non_Nones > 1:
         sys.exit("Require only one of '-n'/'--max-num', '-p'/'--max-proportion', or '-d'/'--max-distance' to be specified.")
     if args.max_num:
-        estimation_criteria_type = "num"
-        estimation_criteria_value = args.max_num
+        rejection_criteria_type = "num"
+        rejection_criteria_value = args.max_num
     elif args.max_proportion:
-        estimation_criteria_type = "proportion"
-        estimation_criteria_value = args.max_proportion
+        rejection_criteria_type = "proportion"
+        rejection_criteria_value = args.max_proportion
     elif args.max_distance:
-        estimation_criteria_type = "distance"
-        estimation_criteria_value = args.max_distance
+        rejection_criteria_type = "distance"
+        rejection_criteria_value = args.max_distance
     run_logger = utility.RunLogger(
             name="gerenuk-estimate",
             stderr_logging_level="info",
             log_to_stderr=not args.quiet,
             log_to_file=False
             )
-    ge = GerenukEstimator(
-            estimation_criteria_type=estimation_criteria_type
-            estimation_criteria_value=estimation_criteria_value
+    gr = GerenukRejector(
+            rejection_criteria_type=rejection_criteria_type,
+            rejection_criteria_value=rejection_criteria_value,
             run_logger=run_logger,
             stats_field_prefix=args.stats_field_prefix,
             field_delimiter=args.field_delimiter,
             is_output_summary_stats=args.output_summary_stats,
             )
-    ge.read_simulated_data(args.simulations_data_filepaths)
-    ge.write_posterior(target_data_filepath=args.target_data_filepath,)
+    gr.read_simulated_data(args.simulations_data_filepaths)
+    gr.write_posterior(target_data_filepath=args.target_data_filepath,)
 
 if __name__ == "__main__":
     main()

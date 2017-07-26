@@ -11,7 +11,7 @@ setup(
     packages=["gerenuk"],
     scripts=[
         "bin/gerenuk-simulate.py",
-        "bin/gerenuk-estimate.py",
+        "bin/gerenuk-reject.py",
         ],
     url="http://pypi.python.org/pypi/gerenuk/",
     test_suite = "gerenuk.test",
