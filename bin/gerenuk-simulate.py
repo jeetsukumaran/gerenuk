@@ -22,12 +22,6 @@ def main():
     #         help="Type of site frequency spectrum to generate, 'folded' or 'unfolded' (default: %(default)s).")
 
     output_options = parser.add_argument_group("Output Options")
-    output_options.add_argument('--name',
-        action='store',
-        type=str,
-        default=None,
-        metavar='SIMULATION-NAME',
-        help="Identifier for this simulation run (default: timestamp).")
     output_options.add_argument('-o', '--output-prefix',
         action='store',
         dest='output_prefix',
@@ -125,10 +119,6 @@ def main():
     utility.parse_legacy_configuration(
             filepath=args.configuration_filepath,
             config_d=config_d)
-    if args.name is None:
-        config_d["name"] = time.strftime("%Y%m%d%H%M%S")
-    else:
-        config_d["name"] = args.name
     if args.output_prefix is None:
         config_d["output_prefix"] = os.path.splitext(os.path.basename(args.configuration_filepath))[0]
     else:
@@ -151,7 +141,7 @@ def main():
     config_d["supplemental_labels"] = utility.parse_fieldname_and_value(args.labels)
     config_d["is_include_model_id_field"] = args.include_model_id_field
     with utility.TemporaryDirectory(
-            prefix="gerenuk-{}.".format(config_d["name"]),
+            prefix="gerenuk-",
             parent_dir=args.working_directory_parent,
             is_suppress_cleanup=args.no_cleanup) as working_directory:
         config_d["working_directory"] = working_directory

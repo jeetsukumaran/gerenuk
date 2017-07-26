@@ -478,7 +478,7 @@ class GerenukSimulationModel(object):
                         "ti_proportional_bias": (1.0 * locus_definition.ti_tv_rate_ratio)/3.0,
                         }
                     fsc2_run_configurations[locus_definition] = fsc2_config_d
-        params["param.divTimeModel"] = "Model{}".format("".join(div_time_model_desc))
+        params["param.divTimeModel"] = "M{}".format("".join(div_time_model_desc))
         return params, fsc2_run_configurations
 
 class Fsc2RuntimeError(RuntimeError):
@@ -515,13 +515,6 @@ class Fsc2Handler(object):
         self._deme0_site_frequency_filepath = None
         self._deme1_site_frequency_filepath = None
         self._joint_site_frequency_filepath = None
-
-    def _get_current_execution_id(self):
-        if self._current_execution_id is None:
-            self._current_execution_id = "".join([self.name, "-{:06d}".format(self._num_executions),
-                ])
-        return self._current_execution_id
-    current_execution_id = property(_get_current_execution_id)
 
     def _get_parameter_filepath(self):
         if self._parameter_filepath is None:
@@ -830,10 +823,7 @@ class GerenukSimulator(object):
         self.worker_class = SimulationWorker
 
     def configure_simulator(self, config_d, verbose=True):
-        self.name = config_d.pop("name", None)
-        if self.name is None:
-            self.name = str(id(self))
-        self.title = "gerenuk-{}".format(self.name)
+        self.title = config_d.pop("title", "gerenuk-{}-{}".format(time.strftime("%Y%m%d%H%M%S"), id(self)))
         self.output_prefix = config_d.pop("output_prefix", self.title)
         self.working_directory = config_d.pop("working_directory", self.title)
         self.run_logger = config_d.pop("run_logger", None)
@@ -849,7 +839,7 @@ class GerenukSimulator(object):
         self.run_logger.system = self
         self.logging_frequency = config_d.pop("logging_frequency", 1000)
         if self.is_verbose_setup:
-            self.run_logger.info("Configuring simulation '{}'".format(self.name))
+            self.run_logger.info("Configuring simulation '{}'".format(self.title))
         self.fsc2_path = config_d.pop("fsc2_path", "fsc25")
         if self.is_verbose_setup:
             self.run_logger.info("FastSimCoal2 path: '{}'".format(self.fsc2_path))
